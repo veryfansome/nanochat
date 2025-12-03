@@ -6,6 +6,7 @@ import os
 import time
 import argparse
 import torch
+import json
 from nanochat.tokenizer import RustBPETokenizer
 from nanochat.common import get_base_dir
 from nanochat.dataset import parquets_iter_batched
@@ -17,10 +18,12 @@ parser = argparse.ArgumentParser(description='Train a BPE tokenizer')
 parser.add_argument('--max_chars', type=int, default=10_000_000_000, help='Maximum characters to train on (default: 10B)')
 parser.add_argument('--doc_cap', type=int, default=10_000, help='Maximum characters per document (default: 10,000)')
 parser.add_argument('--vocab_size', type=int, default=65536, help='Vocabulary size (default: 65536 = 2^16)')
+parser.add_argument('--seed_tokens', type=str, help='Path to JSON file with a list of seed tokens')
 args = parser.parse_args()
 print(f"max_chars: {args.max_chars:,}")
 print(f"doc_cap: {args.doc_cap:,}")
 print(f"vocab_size: {args.vocab_size:,}")
+print(f"seed_tokens: {args.seed_tokens}")
 
 # -----------------------------------------------------------------------------
 # Text iterator
@@ -44,9 +47,20 @@ def text_iterator():
 text_iter = text_iterator()
 
 # -----------------------------------------------------------------------------
+# Load seed tokens if provided
+seed_tokens = None
+if args.seed_tokens is not None:
+    with open(args.seed_tokens, "r", encoding="utf-8") as f:
+        seed_tokens = json.load(f)
+    assert isinstance(seed_tokens, list), f"{args.seed_tokens} must be a list of strings"
+    for t in seed_tokens:
+        if not isinstance(t, str):
+            raise ValueError(f"All seed tokens must be strings, got {type(t)} for {t!r}")
+
+# -----------------------------------------------------------------------------
 # Train the tokenizer
 t0 = time.time()
-tokenizer = RustBPETokenizer.train_from_iterator(text_iter, args.vocab_size)
+tokenizer = RustBPETokenizer.train_from_iterator(text_iter, args.vocab_size, seed_tokens=seed_tokens)
 t1 = time.time()
 train_time = t1 - t0
 print(f"Training time: {train_time:.2f}s")

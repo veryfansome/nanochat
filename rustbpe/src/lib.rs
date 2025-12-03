@@ -161,11 +161,101 @@ impl Tokenizer {
     /// Core incremental BPE training given unique words and their counts.
     /// `words`: one entry per unique chunk (Vec<u32> of token-ids/bytes).
     /// `counts`: same length as `words`, count per chunk.
-    fn train_core_incremental(&mut self, mut words: Vec<Word>, counts: Vec<i32>, vocab_size: u32) {
-        assert!(vocab_size >= 256, "vocab_size must be at least 256");
+    fn train_core_incremental(
+        &mut self,
+        mut words: Vec<Word>,
+        counts: Vec<i32>,
+        vocab_size: u32,
+        seed_tokens: Option<Vec<Vec<u8>>>,
+    ) {
         let num_merges = vocab_size - 256;
         log::info!("Starting BPE training: {} merges to compute", num_merges);
         self.merges.clear();
+
+        // ---- Build seed merges (warm start) ----
+        let mut next_id: u32 = 256;
+        let mut seed_merge_sequence: Vec<(Pair, u32)> = Vec::new();
+
+        if let Some(seeds) = &seed_tokens {
+            // Rough upper bound check: each token of length L needs at most (L-1) merges
+            let mut upper_bound_merges: u32 = 0;
+            for token_bytes in seeds {
+                let len = token_bytes.len() as u32;
+                if len >= 2 {
+                    upper_bound_merges = upper_bound_merges.saturating_add(len - 1);
+                }
+            }
+
+            log::info!(
+                "Building warm-start merges from {} seed tokens (upper bound {} merges)",
+                seeds.len(),
+                upper_bound_merges
+            );
+            for token_bytes in seeds {
+                if token_bytes.len() < 2 {
+                    continue; // single-byte tokens already exist
+                }
+
+                // Left-to-right chain: (((b0,b1)->id0, b2)->id1, ...)
+                let mut left_id: u32 = token_bytes[0] as u32;
+                for &b in &token_bytes[1..] {
+                    let right_id: u32 = b as u32;
+                    let pair: Pair = (left_id, right_id);
+
+                    // Reuse an existing merge if we've already created it; otherwise allocate a new id.
+                    let merged_id = if let Some(&existing) = self.merges.get(&pair) {
+                        existing
+                    } else {
+                        // Ensure we don't exceed the total merge budget
+                        assert!(
+                            next_id < 256 + num_merges,
+                            "Ran out of merge slots while creating seed merges; increase vocab_size or reduce seed tokens"
+                        );
+                        let id = next_id;
+                        next_id += 1;
+                        self.merges.insert(pair, id);
+                        seed_merge_sequence.push((pair, id));
+                        id
+                    };
+
+                    left_id = merged_id;
+                }
+            }
+        }
+
+        let seed_merges_count: u32 = next_id - 256;
+        log::info!(
+            "Seed merge warm start: {} merges reserved (IDs 256..{})",
+            seed_merges_count,
+            next_id.saturating_sub(1)
+        );
+
+        // ---- Apply seed merges to corpus ----
+        if seed_merges_count > 0 {
+            log::info!("Applying seed merges to {} unique sequences", words.len());
+            // This simulates running those merges before we start normal BPE, so
+            // the subsequent pair counts reflect the seeded segmentation.
+            for (pair, new_id) in &seed_merge_sequence {
+                for (i, w) in words.iter_mut().enumerate() {
+                    if counts[i] == 0 {
+                        continue;
+                    }
+                    // We don't track pair-count deltas here; we'll recompute from scratch below.
+                    let _ = w.merge_pair(*pair, *new_id);
+                }
+            }
+        }
+
+        // ---- Normal BPE training on the seeded corpus ----
+        let num_merges_remaining = num_merges - seed_merges_count;
+        log::info!(
+            "Normal BPE training: {} merges remaining after warm start",
+            num_merges_remaining
+        );
+        if num_merges_remaining == 0 {
+            log::info!("No remaining merges to perform; finished after warm start");
+            return;
+        }
 
         // ---- Initial pair_counts and where_to_update (parallel) ----
         log::info!("Computing initial pair counts from {} unique sequences", words.len());
@@ -187,7 +277,7 @@ impl Tokenizer {
 
         // ---- Merge loop ----
         log::info!("Starting merge loop");
-        let mut merges_done = 0u32;
+        let mut merges_done = seed_merges_count;
         let mut last_log_percent = 0u32;
 
         while merges_done < num_merges {
@@ -252,7 +342,12 @@ impl Tokenizer {
             }
         }
 
-        log::info!("Finished training: {} merges completed", merges_done);
+        log::info!(
+            "Finished training: {} merges completed ({} seed + {} learned)",
+            merges_done,
+            seed_merges_count,
+            merges_done - seed_merges_count
+        );
     }
 }
 
@@ -272,8 +367,8 @@ impl Tokenizer {
     /// Train from a streaming iterator (parallel ingestion).
     /// We refill a Rust Vec<String> buffer under the GIL, then release the GIL
     /// to do the heavy splitting and counting **in parallel** with rayon.
-    #[pyo3(signature = (iterator, vocab_size, buffer_size=8192, pattern=None))]
-    #[pyo3(text_signature = "(self, iterator, vocab_size, buffer_size=8192, pattern=None)")]
+    #[pyo3(signature = (iterator, vocab_size, buffer_size=8192, pattern=None, seed_tokens=None))]
+    #[pyo3(text_signature = "(self, iterator, vocab_size, buffer_size=8192, pattern=None, seed_tokens=None)")]
     pub fn train_from_iterator(
         &mut self,
         py: pyo3::Python<'_>,
@@ -281,6 +376,7 @@ impl Tokenizer {
         vocab_size: u32,
         buffer_size: usize,
         pattern: Option<String>,
+        seed_tokens: Option<Vec<String>>,
     ) -> PyResult<()> {
         // Use provided pattern or default to GPT-4 pattern
         let pattern_str = pattern.unwrap_or_else(|| GPT4_PATTERN.to_string());
@@ -385,7 +481,31 @@ impl Tokenizer {
             cvec.push(c);
         }
 
-        self.train_core_incremental(words, cvec, vocab_size);
+        // Convert seed tokens (UTF-8 strings) to raw bytes
+        let seed_tokens_bytes: Option<Vec<Vec<u8>>> = seed_tokens.map(|v| {
+            v.into_iter()
+                .map(|s| s.into_bytes())
+                .collect()
+        });
+
+        // Validate vocab_size and seed merge budget
+        let num_merges = vocab_size
+            .checked_sub(256)
+            .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("vocab_size must be at least 256"))?;
+        if let Some(seeds) = &seed_tokens_bytes {
+            let required: u32 = seeds
+                .iter()
+                .map(|b| (b.len().saturating_sub(1)) as u32) // L bytes needs at most L-1 merges
+                .sum();
+            if required > num_merges {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Seed tokens require at most {} merges, but only {} are available (vocab_size too small?)",
+                    required, num_merges
+                )));
+            }
+        }
+
+        self.train_core_incremental(words, cvec, vocab_size, seed_tokens_bytes);
         Ok(())
     }
 
