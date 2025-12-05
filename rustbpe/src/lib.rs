@@ -166,11 +166,31 @@ impl Tokenizer {
         mut words: Vec<Word>,
         counts: Vec<i32>,
         vocab_size: u32,
-        seed_tokens: Option<Vec<Vec<u8>>>,
+        mut seed_tokens: Option<Vec<Vec<u8>>>,
     ) {
         let num_merges = vocab_size - 256;
         log::info!("Starting BPE training: {} merges to compute", num_merges);
         self.merges.clear();
+
+        // ---- Sort seed tokens: longer first, deterministic tie-break by bytes ----
+        if let Some(seeds) = seed_tokens.as_mut() {
+            seeds.sort_by(|a, b| {
+                // primary: descending length (longer seeds get lower IDs)
+                b.len()
+                    .cmp(&a.len())
+                    // tie-break: lexicographic bytes to keep deterministic ordering
+                    .then_with(|| a.cmp(b))
+            });
+            // Drop exact duplicate seeds after sorting
+            seeds.dedup();
+        }
+
+        // ---- Maintain bytes for every token id during training to avoid duplicates ----
+        let mut token_bytes: Vec<Vec<u8>> = (0..256_u32).map(|i| vec![i as u8]).collect();
+        let mut bytes_to_id: AHashMap<Vec<u8>, u32> = AHashMap::new();
+        for i in 0..256_u32 {
+            bytes_to_id.insert(vec![i as u8], i);
+        }
 
         // ---- Build seed merges (warm start) ----
         let mut next_id: u32 = 256;
@@ -179,8 +199,8 @@ impl Tokenizer {
         if let Some(seeds) = &seed_tokens {
             // Rough upper bound check: each token of length L needs at most (L-1) merges
             let mut upper_bound_merges: u32 = 0;
-            for token_bytes in seeds {
-                let len = token_bytes.len() as u32;
+            for seed in seeds {
+                let len = seed.len() as u32;
                 if len >= 2 {
                     upper_bound_merges = upper_bound_merges.saturating_add(len - 1);
                 }
@@ -191,32 +211,46 @@ impl Tokenizer {
                 seeds.len(),
                 upper_bound_merges
             );
-            for token_bytes in seeds {
-                if token_bytes.len() < 2 {
+            for seed in seeds {
+                if seed.len() < 2 {
                     continue; // single-byte tokens already exist
                 }
 
                 // Left-to-right chain: (((b0,b1)->id0, b2)->id1, ...)
-                let mut left_id: u32 = token_bytes[0] as u32;
-                for &b in &token_bytes[1..] {
+                let mut left_id: u32 = seed[0] as u32;
+                for &b in &seed[1..] {
                     let right_id: u32 = b as u32;
                     let pair: Pair = (left_id, right_id);
 
+                    // Compute merged bytes from existing token bytes
+                    let mut merged = token_bytes[left_id as usize].clone();
+                    merged.extend_from_slice(&token_bytes[right_id as usize]);
+
                     // Reuse an existing merge if we've already created it; otherwise allocate a new id.
-                    let merged_id = if let Some(&existing) = self.merges.get(&pair) {
+                    let merged_id: u32 = if let Some(&existing) = bytes_to_id.get(&merged) {
                         existing
                     } else {
                         // Ensure we don't exceed the total merge budget
                         assert!(
                             next_id < 256 + num_merges,
-                            "Ran out of merge slots while creating seed merges; increase vocab_size or reduce seed tokens"
+                            "Ran out of merge slots while creating seed merges"
                         );
                         let id = next_id;
                         next_id += 1;
-                        self.merges.insert(pair, id);
-                        seed_merge_sequence.push((pair, id));
+
+                        if token_bytes.len() <= id as usize {
+                            token_bytes.resize(id as usize + 1, Vec::new());
+                        }
+                        token_bytes[id as usize] = merged.clone();
+                        bytes_to_id.insert(merged, id);
                         id
                     };
+
+                    // Register the pair -> merged_id mapping if not already present
+                    if !self.merges.contains_key(&pair) {
+                        self.merges.insert(pair, merged_id);
+                        seed_merge_sequence.push((pair, merged_id));
+                    }
 
                     left_id = merged_id;
                 }
@@ -264,13 +298,12 @@ impl Tokenizer {
         // ---- Build heap ----
         log::info!("Building heap with {} unique pairs", pair_counts.len());
         let mut heap = OctonaryHeap::with_capacity(pair_counts.len());
-        for (pair, pos) in where_to_update.drain() {
-            let c = *pair_counts.get(&pair).unwrap_or(&0);
+        for (&pair, &c) in pair_counts.iter() {
             if c > 0 {
                 heap.push(MergeJob {
                     pair,
                     count: c as u64,
-                    pos,
+                    pos: AHashSet::new(), // no longer used
                 });
             }
         }
@@ -296,22 +329,68 @@ impl Tokenizer {
                 break;
             }
 
-            // Record merge
-            let new_id = 256 + merges_done;
-            self.merges.insert(top.pair, new_id);
+            // If this pair already has a merge rule, we just skip creating a new id.
+            if self.merges.contains_key(&top.pair) {
+                continue;
+            }
+
+            let (left, right) = top.pair;
+
+            // Compute merged bytes
+            let mut merged = token_bytes[left as usize].clone();
+            merged.extend_from_slice(&token_bytes[right as usize]);
+
+            // Decide whether this is a new token or we reuse an existing one.
+            let existing = bytes_to_id.get(merged.as_slice()).copied();
+
+            let (merged_id, is_new_token): (u32, bool) = match existing {
+                Some(existing_id) => {
+                    if existing_id > left && existing_id > right {
+                        // Safe alias: does not violate topological order
+                        (existing_id, false)
+                    } else {
+                        // Conflict: would create a rule like (404, x) -> 299.
+                        // That breaks exporter reconstruction and is inconsistent as a BPE rank.
+                        // Disable this pair and move on.
+                        pair_counts.insert(top.pair, 0);
+                        continue;
+                    }
+                }
+                None => {
+                    if next_id >= 256 + num_merges {
+                        break; // no budget left
+                    }
+                    let id = next_id;
+                    next_id += 1;
+
+                    if token_bytes.len() <= id as usize {
+                        token_bytes.resize(id as usize + 1, Vec::new());
+                    }
+                    token_bytes[id as usize] = merged.clone();
+                    bytes_to_id.insert(merged.clone(), id);
+
+                    (id, true)
+                }
+            };
+
+            // Register the merge for this pair
+            self.merges.insert(top.pair, merged_id);
 
             // Merge this pair in all words where it occurs
             let mut local_pos_updates: AHashMap<Pair, AHashSet<usize>> = AHashMap::new();
-            for &word_idx in &top.pos {
-                // Apply merge to this word and collect pair-count deltas
-                let changes = words[word_idx].merge_pair(top.pair, new_id);
-                // Update global pair counts based on this word's count
-                for (pair, delta) in changes {
-                    let delta_total = delta * counts[word_idx];
-                    if delta_total != 0 {
-                        *pair_counts.entry(pair).or_default() += delta_total;
-                        if delta > 0 {
-                            local_pos_updates.entry(pair).or_default().insert(word_idx);
+
+            if let Some(pos_set) = where_to_update.get(&top.pair) {
+                for &word_idx in pos_set.iter() {
+                    // Apply merge to this word and collect pair-count deltas
+                    let changes = words[word_idx].merge_pair(top.pair, merged_id);
+                    // Update global pair counts based on this word's count
+                    for (pair, delta) in changes {
+                        let delta_total = delta * counts[word_idx];
+                        if delta_total != 0 {
+                            *pair_counts.entry(pair).or_default() += delta_total;
+                            if delta > 0 {
+                                local_pos_updates.entry(pair).or_default().insert(word_idx);
+                            }
                         }
                     }
                 }
@@ -319,26 +398,29 @@ impl Tokenizer {
 
             // Add the updated pair counts back to the heap
             for (pair, pos) in local_pos_updates {
+                where_to_update.entry(pair).or_default().extend(pos.iter().copied());
                 let cnt = *pair_counts.get(&pair).unwrap_or(&0);
                 if cnt > 0 {
                     heap.push(MergeJob {
                         pair,
                         count: cnt as u64,
-                        pos,
+                        pos: AHashSet::new(),
                     });
                 }
             }
 
-            merges_done += 1;
+            if is_new_token {
+                merges_done += 1;
 
-            // Log progress every 1%
-            let current_percent = (merges_done * 100) / num_merges;
-            if current_percent > last_log_percent {
-                log::info!(
-                    "Progress: {}% ({}/{} merges) - Last merge: {:?} -> {} (frequency: {})",
-                    current_percent, merges_done, num_merges, top.pair, new_id, top.count
-                );
-                last_log_percent = current_percent;
+                // Log progress every 1%
+                let current_percent = (merges_done * 100) / num_merges;
+                if current_percent > last_log_percent {
+                    log::info!(
+                        "Progress: {}% ({}/{} merges) - Last merge: {:?} -> {} (frequency: {})",
+                        current_percent, merges_done, num_merges, top.pair, merged_id, top.count
+                    );
+                    last_log_percent = current_percent;
+                }
             }
         }
 

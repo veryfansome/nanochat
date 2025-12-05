@@ -1,0 +1,123 @@
+---
+seeds: [
+  ##
+  # Bound morphemems (mostly)
+
+  "Ab", # ab
+  "Abs", # abs
+  "Ac", # ac
+  "Ad", # ad
+  "Ag", # ag
+  "Al", # al
+  "Ap", # ap
+  "Ar", # ar
+  "As", # as
+  "At", # at
+
+  "Dict", # dict
+  "Duc", # duc
+  "En", # en
+  "Form", # form
+  "Il", # il
+  "Im", # iim
+  "In", # in
+  "Inter", # inter
+  "Intra", # intra
+  "Intro", # intro
+  "Ir", # ir
+  "Mis", # mis
+  "Post", # post
+  "Pre", # pre
+  "Re", # re
+  "Un", # un
+  "Vers", # vers
+  "Vert", # vert
+  "ab", # means "away" or "from"
+  "able", # changes verbs to adjectives (see: ible), can also be a free morpheme
+  "abs", # form of ab
+  "ac", # form of ad
+  "ad", # means "to, towards, in, or near".
+  "ag", # form of ad before g
+  "al", # form of ad before l and, as a suffix, forms adjectives from nouns, meaning "relating to" or "characteristic of"
+  "ance", #
+  "ap", # form of ad before p
+  "ar", # form of ad before r
+  "as", # form of ad before s
+  "at", # form of ad before t
+  "ate", # forms verbs, can also be a free morpheme
+  "ation", # related to ate, changes verbs to nouns
+  "bandon", # from the Old French *bandon*
+  "bio", # from the Greek word bios, meaning "life"
+  "dict", # from Latin, meaning "say" or "speak"
+  "dis", # used to express negation, often with verbs, nouns, and adjectives of Latin origin (see: un, in)
+  "duc", # from Latin verb, meaning "to lead" or "to bring",
+  "ed", # changes verbs to past tense, can be used to form nouns from adjectives
+  "en", # as prefix, means "to cause to be in (a certain state)" or "to cover with" and as suffix, is used to form past participles of certain verbs
+  "er", # changes adjectives to comparatives or verbs to nouns, as in a person who performs an action
+  "es", # changes nouns to plural or denotes 3rd person singular present verbs
+  "est", # changes adjectives and some adverbs to superlatives
+  "form", # meaning "to shape or create", can also be a free morpheme
+  "ful", # means "full of X" or "resembling X"
+  "hood", # denotes a state, condition, quality, or a body of persons, can also be a free morpheme
+  "ian", # used to form both adjectives and nouns, typically means "from, related to, or like" or "one who has a certain skill or art"
+  "ible", # changes verbs to adjectives (see: able)
+  "il", # used to express negation, form of *in* used before words starting with l (see: in)
+  "ile", # forms adjectives and sometimes nouns, typically denoting capability, susceptibility, aptitude, or "of or relating to"
+  "im", # used to express negation, form of *in* used before words starting with m or p  (see: in)
+  "in", # used to express negation (see: dis, un)
+  "ing", # indicates an ongoing action
+  "inter", # means "between" or "among"
+  "intra", # means "within" or "inside"
+  "intro", # from Latin, meaning "inward" or "into"
+  "ion", # changes verbs to nouns, generally indicates "act, process, result, or condition of" doing something
+  "ir", # used to express negation, form of *in* used before words starting with r (see: in)
+  "ism", # forms nouns
+  "ity", # used to form abstract nouns from adjectives, expressing a state, condition, or quality
+  "ive", # changes verbs into adjectives, means "doing", "tending to do", "causing", "making", or "being" something specified
+  "ject", # from the Latin, meaning "to throw"
+  "less", # means "without X" or "lacking in X"
+  "lied", # ly + ed
+  "lier", # ly + er
+  "lies", # ly + es
+  "liest", # ly + est
+  "liness", # ly + ness
+  "ly", # changes adjectives to adverbs and nouns to adjectives
+  "ment", # changes verbs to nouns, generally indicates the "act or condition of" something, or the "product or means" of an action
+  "mis", # means bad, wrong, or incorrectly
+  "ness", # changes adjectives to nouns, generally indicates a state, condition, or quality
+  "post", # means after
+  "pre", # means before
+  "re", # means again
+  "spect", # from Latin, meaning to see or to watch
+  "un", # used to express negation, often with verbs, nouns, and adjectives of Old English origin  (see: dis, in)
+  "vers", # alternative form of vert
+  "vert", # from Latin, meaning "to turn"
+
+  #"and",
+  #"but",
+  #"cred",
+  #"it",
+  #"legal",
+  #"mit",
+  #"on",
+  #"or",
+  #"part",
+  #"place",
+  #"play",
+  #"port",
+  #"the",
+
+  ##
+  # Free morphemes
+  #"act",
+  #"breakfast", # Not break + fast
+  #"cupboard", # Not cup + board
+  #"nation", # Not nat + ion
+  #"run",
+  #"stand",
+  #"stood",
+  #"understand", # Not under + stand
+  #"understood", # Not under + stood
+  #"walk",
+  #"with",
+]
