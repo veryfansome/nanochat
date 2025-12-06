@@ -1,123 +1,153 @@
 ---
-seeds: [
-  ##
-  # Bound morphemems (mostly)
+# Free or bound morphemes that can appear at the beginning or inside of words
+versatile_morphemes: [
+  "able",
+  "act",
+  "ate",
+  "break",
+  "candid",
+  "character",
+  "chondr", # from Greek chondros, meaning "cartilage" or "grain"
+  "chron", # from the Greek word khronos, meaning "time"
+  "clos", # from the Latin root morpheme meaning "shut" or "close"
+  "cogn", # from the Latin cognoscere, meaning "to get to know" or "to know"
+  "cred", # meaning "believe" or "trust"
+  "derm", # from the Greek word derma, meaning "skin"
+  "dict", # from Latin, meaning "say" or "speak"
+  "establish",
+  "fail",
+  "fin", # from Latin "finis", meaning "end",  or "limit"
+  "fix",
+  "form",
+  "graph",
+  "hood",
+  "hydr", # from the Greek word hudōr, meaning "water"; can be hydr + o
+  "hyphen",
+  "in",
+  "ion",
+  "jest",
+  "labor",
+  "less",
+  "log",
+  "macro",
+  "meter",
+  "micro",
+  "mix",
+  "mono",
+  "morph",
+  "on",
+  "over",
+  "path",
+  "phob", # from the Greek root phob (or phobos), used to form words related to fear or aversion; can be phob + (e|ia|ic)
+  "phon", # from Greek meaning "sound" or "voice"
+  "phos", # from the Greek word phōs, meaning "light"
+  "phot", # form of phos
+  "poly", # from the ancient Greek word polys, meaning "many"
+  "portion",
+  "post",
+  "press",
+  "rect", # from the Latin regere, which means "to guide, rule, or make straight/right"
+  "run",
+  "rupt", # means "breaking" or "bursting"
+  "scop", # means "to look at" or "examine"
+  "septic",
+  "spect", # from Latin, meaning to see or to watch
+  "stand",
+  "stood",
+  "therm", # from Greek, meaning "heat" or "warm"
+  "under",
+  "vers", # alternative form of vert
+  "vert", # from Latin, meaning "to turn"
+  "vol", # from Latin, meaning "wish" or "will"
+]
 
-  "Ab", # ab
-  "Abs", # abs
-  "Ac", # ac
-  "Ad", # ad
-  "Ag", # ag
-  "Al", # al
-  "Ap", # ap
-  "Ar", # ar
-  "As", # as
-  "At", # at
-
-  "Dict", # dict
-  "Duc", # duc
-  "En", # en
-  "Form", # form
-  "Il", # il
-  "Im", # iim
-  "In", # in
-  "Inter", # inter
-  "Intra", # intra
-  "Intro", # intro
-  "Ir", # ir
-  "Mis", # mis
-  "Post", # post
-  "Pre", # pre
-  "Re", # re
-  "Un", # un
-  "Vers", # vers
-  "Vert", # vert
+prefixes: [
+  "a", # meaning "without" or "not"
   "ab", # means "away" or "from"
-  "able", # changes verbs to adjectives (see: ible), can also be a free morpheme
   "abs", # form of ab
   "ac", # form of ad
   "ad", # means "to, towards, in, or near".
+  "af", # form of ad before f
   "ag", # form of ad before g
   "al", # form of ad before l and, as a suffix, forms adjectives from nouns, meaning "relating to" or "characteristic of"
-  "ance", #
+  "ana", # meaning of "up," "upward," "back," "again," "repetition," or "throughout"
+  "anti", # meaning "against" or "opposite"
   "ap", # form of ad before p
   "ar", # form of ad before r
   "as", # form of ad before s
   "at", # form of ad before t
-  "ate", # forms verbs, can also be a free morpheme
-  "ation", # related to ate, changes verbs to nouns
-  "bandon", # from the Old French *bandon*
+  "bene", # means "good" or "well"
   "bio", # from the Greek word bios, meaning "life"
-  "dict", # from Latin, meaning "say" or "speak"
+  "cor", # from Latin "com", meaning "with," "together," or "completely"
   "dis", # used to express negation, often with verbs, nouns, and adjectives of Latin origin (see: un, in)
-  "duc", # from Latin verb, meaning "to lead" or "to bring",
-  "ed", # changes verbs to past tense, can be used to form nouns from adjectives
-  "en", # as prefix, means "to cause to be in (a certain state)" or "to cover with" and as suffix, is used to form past participles of certain verbs
-  "er", # changes adjectives to comparatives or verbs to nouns, as in a person who performs an action
-  "es", # changes nouns to plural or denotes 3rd person singular present verbs
-  "est", # changes adjectives and some adverbs to superlatives
-  "form", # meaning "to shape or create", can also be a free morpheme
-  "ful", # means "full of X" or "resembling X"
-  "hood", # denotes a state, condition, quality, or a body of persons, can also be a free morpheme
-  "ian", # used to form both adjectives and nouns, typically means "from, related to, or like" or "one who has a certain skill or art"
-  "ible", # changes verbs to adjectives (see: able)
+  "eco", # from the Ancient Greek word oikos, meaning "house," "household," or "environment"
+  "en", # means "to cause to be in (a certain state)" or "to cover with"
+  "endo", # from the Greek word endon, which means "within"
+  "ex", # from Latin, meaning "out" or "from", or acts as an intensive prefix, or "former" when used with a hyphen
+  "exo", # from Greek and means "outside," "external," or "originating from outside"
+  "geo", # from the Greek word ge or gaia, meaning "earth", "ground", or "land"
+  "glyc", # from the Greek glykys, meaning "sweet"
+  "hemat", # from the Greek haima, meaning "blood"
+  "hemo", # from the Greek haima, meaning "blood"
+  "hyper", # meaning "over," "above," "beyond," or "excessive"
+  "hypo", # from the Greek word hypo, meaning "under, beneath, or less than normal"
   "il", # used to express negation, form of *in* used before words starting with l (see: in)
-  "ile", # forms adjectives and sometimes nouns, typically denoting capability, susceptibility, aptitude, or "of or relating to"
   "im", # used to express negation, form of *in* used before words starting with m or p  (see: in)
-  "in", # used to express negation (see: dis, un)
-  "ing", # indicates an ongoing action
   "inter", # means "between" or "among"
   "intra", # means "within" or "inside"
   "intro", # from Latin, meaning "inward" or "into"
-  "ion", # changes verbs to nouns, generally indicates "act, process, result, or condition of" doing something
   "ir", # used to express negation, form of *in* used before words starting with r (see: in)
+  "mis", # means bad, wrong, or incorrectly
+  "mito", # from the Greek word mitos, meaning "thread"
+  "phil", # from ancient Greek, meaning "dear, beloved, or loving"
+  "pre", # means before
+  "pro", # indicates movement or pushing forward or being in favor of something
+  "re", # means again
+  "tele", # from the Greek word tēle meaning "far off" or "at a distance"
+  "un", # used to express negation, often with verbs, nouns, and adjectives of Old English origin  (see: dis, in)
+]
+
+# Suffixes and bound morphemes that don't start words
+inner_morphemes: [
+  "ance", # changes a verb or adjective into a noun, typically indicating a quality, state, or action
+  "arian", # used to refer to a person associated with a certain doctrine, belief, or activity
+  "aries", # plural of iary
+  "ary", # means "pertaining to or connected with", "a place for or collection of", or "a person engaged in"
+  "clud", # form of clos
+  "clus", # form of clos
+  "duc", # from Latin verb, meaning "to lead" or "to bring"
+  "ed", # changes verbs to past tense, can be used to form nouns from adjectives
+  "em", # from the Greek haima, meaning "blood"
+  "en", # used to form past participles of certain verbs
+  "er", # changes adjectives to comparatives or verbs to nouns, as in a person who performs an action
+  "es", # changes nouns to plural or denotes 3rd person singular present verbs
+  "esim", # from New Latin –ēsimus, used to form ordinal numbers
+  "est", # changes adjectives and some adverbs to superlatives
+  "fic", # from Latin verb "facere", meaning "to do" or "to make"
+  "ful", # means "full of X" or "resembling X"
+  "ia", # from Greek, noun suffix used to indicate a condition, state, or quality
+  "ian", # used to form both adjectives and nouns, typically means "from, related to, or like" or "one who has a certain skill or art"
+  "ible", # changes verbs to adjectives (see: able)
+  "ic", # forms adjectives from nouns or other bases, typically meaning "relating to" or "having the characteristics of"
+  "ile", # forms adjectives and sometimes nouns, typically denoting capability, susceptibility, aptitude, or "of or relating to"
+  "ing", # indicates an ongoing action
   "ism", # forms nouns
+  "ite", # used to form words meaning "a native, resident, or member of a place", "a follower or a member of a group or movement", or "a mineral or rock"
+  "ities", # plural of ity
+  "itis", # derived from Greek, denotes inflammation of a specific organ, part, or place
   "ity", # used to form abstract nouns from adjectives, expressing a state, condition, or quality
   "ive", # changes verbs into adjectives, means "doing", "tending to do", "causing", "making", or "being" something specified
+  "ize", # generally carries the meaning of "to make," "to cause to be," "to become," or "to give the qualities of" something
   "ject", # from the Latin, meaning "to throw"
-  "less", # means "without X" or "lacking in X"
-  "lied", # ly + ed
-  "lier", # ly + er
-  "lies", # ly + es
-  "liest", # ly + est
-  "liness", # ly + ness
   "ly", # changes adjectives to adverbs and nouns to adjectives
   "ment", # changes verbs to nouns, generally indicates the "act or condition of" something, or the "product or means" of an action
-  "mis", # means bad, wrong, or incorrectly
   "ness", # changes adjectives to nouns, generally indicates a state, condition, or quality
-  "post", # means after
-  "pre", # means before
-  "re", # means again
-  "spect", # from Latin, meaning to see or to watch
-  "un", # used to express negation, often with verbs, nouns, and adjectives of Old English origin  (see: dis, in)
-  "vers", # alternative form of vert
-  "vert", # from Latin, meaning "to turn"
-
-  #"and",
-  #"but",
-  #"cred",
-  #"it",
-  #"legal",
-  #"mit",
-  #"on",
-  #"or",
-  #"part",
-  #"place",
-  #"play",
-  #"port",
-  #"the",
-
-  ##
-  # Free morphemes
-  #"act",
-  #"breakfast", # Not break + fast
-  #"cupboard", # Not cup + board
-  #"nation", # Not nat + ion
-  #"run",
-  #"stand",
-  #"stood",
-  #"understand", # Not under + stand
-  #"understood", # Not under + stood
-  #"walk",
-  #"with",
+  "oma", # used in medical terminology to denote a tumor, a mass, or a swelling
+  "ous", # from the Latin -osus and Old French -ous or -us, that forms adjectives from nouns
+  "rrhage", # means "bursting forth" or "excessive flow"
+  "rrhaphy", # refers to surgical suturing or repair
+  "rrhea", # means a flow or discharge of a bodily fluid
+  "rrhexis", # means repair
+  "sis", # from Ancient Greek via Latin, used to form nouns, typically denoting a condition, disease, state, or process
+  "ure", # from the Latin suffix "-ura", generally conveys the "action or process of" or "the result or product of that action"
 ]

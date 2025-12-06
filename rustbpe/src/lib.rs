@@ -168,6 +168,7 @@ impl Tokenizer {
         vocab_size: u32,
         mut seed_tokens: Option<Vec<Vec<u8>>>,
     ) {
+        assert!(vocab_size >= 256, "vocab_size must be at least 256");
         let num_merges = vocab_size - 256;
         log::info!("Starting BPE training: {} merges to compute", num_merges);
         self.merges.clear();
