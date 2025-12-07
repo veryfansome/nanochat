@@ -1,11 +1,7 @@
 #!/bin/bash
 set -x
 
-# Showing an example run for exercising some of the code paths on the CPU (or MPS on Macbooks)
-# Run as:
-# bash sandbox/modified-runcpu.sh
-
-# NOTE: This script is a modified version of dev/runcpu.sh that makes playing around on a Macbook or Mac mini easier.
+# This script is a modified version of dev/runcpu.sh that makes playing around on a Macbook or Mac mini easier.
 
 export OMP_NUM_THREADS=1
 export NANOCHAT_BASE_DIR="$HOME/.cache/nanochat"
@@ -28,7 +24,7 @@ DEVICE_BATCH_SIZE=${DEVICE_BATCH_SIZE:-2}
 TOTAL_BATCH_SIZE=${total_batch_size:-16384}
 EVAL_TOKENS=${EVAL_TOKENS:-4096}
 CORE_METRIC_MAX_PER_TASK=${CORE_METRIC_MAX_PER_TASK:-12}
-STEPS_PER_RUN=100
+STEPS_PER_RUN=1000
 
 if [ -d "${NANOCHAT_BASE_DIR}/base_checkpoints/d${MODEL_DEPTH}" ]; then
     # Find last modified checkpoint dir
@@ -47,14 +43,10 @@ set -e
 if [ ! -f "$NANOCHAT_BASE_DIR/tokenizer/token_bytes.pt" ] || [ ! -f "$NANOCHAT_BASE_DIR/tokenizer/tokenizer.pkl" ]; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
     source "$HOME/.cargo/env"
-    uv run maturin develop --release --manifest-path rustbpe/Cargo.toml
-    python -m pytest tests/test_rustbpe.py -v -s
     python -m nanochat.dataset -n 8 # train tokenizer on ~1B characters
     python -m nanochat.dataset -n 240 &
     DATASET_DOWNLOAD_PID=$!
-    python -m sandbox.seed_tokens
-    python -m scripts.tok_train --max_chars=2000000000 --seed_tokens "${NANOCHAT_BASE_DIR}/seed_tokens.json"
-    python -m scripts.tok_eval
+    bash sandbox/tok_train.sh
     wait $DATASET_DOWNLOAD_PID
 fi
 

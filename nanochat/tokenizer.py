@@ -171,6 +171,12 @@ class RustBPETokenizer:
         # 2) construct the associated tiktoken encoding for inference
         pattern = tokenizer.get_pattern()
         mergeable_ranks_list = tokenizer.get_mergeable_ranks()
+
+        ids = [v for _, v in mergeable_ranks_list]
+        missing = sorted(set(range(vocab_size_no_special)) - set(ids))
+        if missing:
+            raise ValueError(f"rustbpe export missing token ids: count={len(missing)}, sample={missing[:20]}")
+
         mergeable_ranks = {bytes(k): v for k, v in mergeable_ranks_list}
         tokens_offset = len(mergeable_ranks)
         special_tokens = {name: tokens_offset + i for i, name in enumerate(SPECIAL_TOKENS)}

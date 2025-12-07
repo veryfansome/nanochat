@@ -3,15 +3,21 @@
 versatile_morphemes: [
   "able",
   "act",
+  "ambul", # from the Latin ambulare, meaning "to walk"
+  "andr", # from the Greek word anēr, meaning "man" or "male"
   "ate",
   "break",
-  "candid",
-  "character",
+  "cali", # from the Greek kallos to mean "beautiful"
+  "calli", # from the Greek kallos to mean "beautiful"
+  "calo", # from the Greek kallos to mean "beautiful"
   "chondr", # from Greek chondros, meaning "cartilage" or "grain"
   "chron", # from the Greek word khronos, meaning "time"
   "clos", # from the Latin root morpheme meaning "shut" or "close"
+  "coccus", # from the Greek word kokkos, meaning "berry"
   "cogn", # from the Latin cognoscere, meaning "to get to know" or "to know"
+  "counter", # means "against", "in opposition", or "contrary"
   "cred", # meaning "believe" or "trust"
+  "cycle",
   "derm", # from the Greek word derma, meaning "skin"
   "dict", # from Latin, meaning "say" or "speak"
   "establish",
@@ -19,11 +25,13 @@ versatile_morphemes: [
   "fin", # from Latin "finis", meaning "end",  or "limit"
   "fix",
   "form",
+  "gen", # from the Greek word for "produce" or "beget"
   "graph",
   "hood",
   "hydr", # from the Greek word hudōr, meaning "water"; can be hydr + o
   "hyphen",
   "in",
+  "inform",
   "ion",
   "jest",
   "labor",
@@ -35,6 +43,8 @@ versatile_morphemes: [
   "mix",
   "mono",
   "morph",
+  "mural",
+  "noct", # from the Latin nox, meaning "night" or "by night"
   "on",
   "over",
   "path",
@@ -46,6 +56,7 @@ versatile_morphemes: [
   "portion",
   "post",
   "press",
+  "quaver",
   "rect", # from the Latin regere, which means "to guide, rule, or make straight/right"
   "run",
   "rupt", # means "breaking" or "bursting"
@@ -53,6 +64,8 @@ versatile_morphemes: [
   "septic",
   "spect", # from Latin, meaning to see or to watch
   "stand",
+  "staphylo", # from the Greek word staphyle, meaning "bunch of grapes"
+  "sthen", # from the Greek word sthenos, meaning "strength"
   "stood",
   "therm", # from Greek, meaning "heat" or "warm"
   "under",
@@ -78,7 +91,9 @@ prefixes: [
   "at", # form of ad before t
   "bene", # means "good" or "well"
   "bio", # from the Greek word bios, meaning "life"
+  "co", # from the Latin prefix com-, meaning "with", "together", or "jointly"
   "cor", # from Latin "com", meaning "with," "together," or "completely"
+  "demi", # from Old French, meaning half
   "dis", # used to express negation, often with verbs, nouns, and adjectives of Latin origin (see: un, in)
   "eco", # from the Ancient Greek word oikos, meaning "house," "household," or "environment"
   "en", # means "to cause to be in (a certain state)" or "to cover with"
@@ -88,7 +103,10 @@ prefixes: [
   "geo", # from the Greek word ge or gaia, meaning "earth", "ground", or "land"
   "glyc", # from the Greek glykys, meaning "sweet"
   "hemat", # from the Greek haima, meaning "blood"
+  "hemi", # from Greek, meaning "half"
   "hemo", # from the Greek haima, meaning "blood"
+  "hetero", # from Greek, meaning "other" or "different"
+  "homo", # from Greek, meaning "same" or "identical"
   "hyper", # meaning "over," "above," "beyond," or "excessive"
   "hypo", # from the Greek word hypo, meaning "under, beneath, or less than normal"
   "il", # used to express negation, form of *in* used before words starting with l (see: in)
@@ -103,6 +121,7 @@ prefixes: [
   "pre", # means before
   "pro", # indicates movement or pushing forward or being in favor of something
   "re", # means again
+  "semi", # from Latin, meaning "half"
   "tele", # from the Greek word tēle meaning "far off" or "at a distance"
   "un", # used to express negation, often with verbs, nouns, and adjectives of Old English origin  (see: dis, in)
 ]
@@ -121,16 +140,20 @@ inner_morphemes: [
   "en", # used to form past participles of certain verbs
   "er", # changes adjectives to comparatives or verbs to nouns, as in a person who performs an action
   "es", # changes nouns to plural or denotes 3rd person singular present verbs
+  "ese", # means "belonging to" or "from a specific place"
   "esim", # from New Latin –ēsimus, used to form ordinal numbers
+  "ess", # forms nouns that denote a female person, often corresponding to a male form of the noun
   "est", # changes adjectives and some adverbs to superlatives
   "fic", # from Latin verb "facere", meaning "to do" or "to make"
   "ful", # means "full of X" or "resembling X"
   "ia", # from Greek, noun suffix used to indicate a condition, state, or quality
+  "ial", # forms adjectives and typically means "relating to" or "characterized by"
   "ian", # used to form both adjectives and nouns, typically means "from, related to, or like" or "one who has a certain skill or art"
   "ible", # changes verbs to adjectives (see: able)
   "ic", # forms adjectives from nouns or other bases, typically meaning "relating to" or "having the characteristics of"
   "ile", # forms adjectives and sometimes nouns, typically denoting capability, susceptibility, aptitude, or "of or relating to"
   "ing", # indicates an ongoing action
+  "ish", # from Old English, for denoting origin or belonging, but is also used to mean "like X" or "somewhat"
   "ism", # forms nouns
   "ite", # used to form words meaning "a native, resident, or member of a place", "a follower or a member of a group or movement", or "a mineral or rock"
   "ities", # plural of ity
@@ -149,5 +172,7 @@ inner_morphemes: [
   "rrhea", # means a flow or discharge of a bodily fluid
   "rrhexis", # means repair
   "sis", # from Ancient Greek via Latin, used to form nouns, typically denoting a condition, disease, state, or process
+  "tain", # from the Latin verb tenēre, which means "to hold" or "to keep"
+  "tial", # form of ial
   "ure", # from the Latin suffix "-ura", generally conveys the "action or process of" or "the result or product of that action"
 ]
