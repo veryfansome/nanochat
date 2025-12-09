@@ -154,300 +154,6 @@ fn count_pairs_parallel(
         )
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-enum FoldDir {
-    LTR,
-    RTL,
-}
-
-/// In RTL mode, we want to start from the right end with the *longest* tail that already
-/// exists (or is declared common), then prepend remaining bytes one-at-a-time.
-/// This creates chains like: al -> ial -> tial.
-fn best_rtl_tail_len(
-    bytes: &[u8],
-    bytes_to_id: &AHashMap<Vec<u8>, u32>,
-    common_suffixes: &AHashSet<Vec<u8>>,
-) -> Option<usize> {
-    if bytes.len() < 3 {
-        return None; // no proper tail len>=2 exists
-    }
-    for len in (2..bytes.len()).rev() {
-        let tail = &bytes[bytes.len() - len..];
-        if bytes_to_id.contains_key(tail) || common_suffixes.contains(tail) {
-            return Some(len);
-        }
-    }
-    None
-}
-
-/// Compute "common suffixes" using a heuristic:
-/// A suffix is only eligible if it is itself a whole seed token,
-/// and that suffix-seed does NOT begin with ASCII space (0x20).
-/// We then keep only suffix-seeds that appear as a proper suffix of >= 2 other seeds.
-///
-/// Returned sorted deterministically: longer first, then lexicographic bytes.
-fn compute_common_suffixes(seeds: &[Vec<u8>]) -> Vec<Vec<u8>> {
-    // Candidate suffixes are *whole seeds* that don't start with space and have len>=2.
-    // (len==1 doesn't help, it's already a byte token.)
-    let candidates: Vec<&Vec<u8>> = seeds
-        .iter()
-        .filter(|t| t.len() >= 2 && t[0] != b' ')
-        .collect();
-
-    let mut suffix_counts: AHashMap<Vec<u8>, u32> = AHashMap::new();
-
-    // Count how many distinct seeds end with each candidate seed (proper suffix only).
-    for s in seeds {
-        for t in &candidates {
-            if s.len() > t.len() && s.as_slice().ends_with(t.as_slice()) {
-                *suffix_counts.entry((*t).clone()).or_default() += 1;
-            }
-        }
-    }
-
-    // Keep only those used by >=2 seeds (i.e., truly "common").
-    let mut out: Vec<Vec<u8>> = suffix_counts
-        .into_iter()
-        .filter_map(|(tok, c)| if c >= 2 { Some(tok) } else { None })
-        .collect();
-
-    out.sort_by(|a, b| b.len().cmp(&a.len()).then_with(|| a.cmp(b)));
-    out
-}
-
-/// Pick the *longest* suffix of `bytes` (len>=2, len < bytes.len()) that is either:
-///   - already a token in `bytes_to_id`, OR
-///   - a precomputed "common suffix" (so we can create it early, even if not yet present).
-fn best_suffix_split_len(
-    bytes: &[u8],
-    bytes_to_id: &AHashMap<Vec<u8>, u32>,
-    common_suffixes: &AHashSet<Vec<u8>>,
-) -> Option<usize> {
-    if bytes.len() < 3 {
-        return None;
-    }
-    for len in (2..bytes.len()).rev() {
-        let suf = &bytes[bytes.len() - len..];
-        if bytes_to_id.contains_key(suf) || common_suffixes.contains(suf) {
-            return Some(len);
-        }
-    }
-    None
-}
-
-/// Ensure we have a merge rule for (left,right) producing the concatenated bytes.
-/// Returns the merged token id (either existing safe-alias or newly allocated).
-fn ensure_merge_pair(
-    left: u32,
-    right: u32,
-    merged_bytes: &[u8],
-    next_id: &mut u32,
-    num_merges: u32,
-    token_bytes: &mut Vec<Vec<u8>>,
-    bytes_to_id: &mut AHashMap<Vec<u8>, u32>,
-    merges: &mut StdHashMap<Pair, u32>,
-    seed_merge_sequence: &mut Vec<(Pair, u32)>,
-) -> u32 {
-    let pair: Pair = (left, right);
-
-    // If we already registered this pair merge, just return it.
-    if let Some(&existing) = merges.get(&pair) {
-        return existing;
-    }
-
-    // If the merged bytes already have a token id, we can only "alias" to it
-    // if it preserves topological order (id > left and id > right).
-    let merged_id: u32 = if let Some(&existing_id) = bytes_to_id.get(merged_bytes) {
-        // Unsafe alias would create (X,Y)->Z where Z < X or Z < Y, which breaks reconstruction.
-        if existing_id > left && existing_id > right {
-            existing_id
-        } else {
-            // This indicates we attempted to define an alternative split for an already-existing token
-            // in a way that violates rank topological order. Do not create such a merge rule.
-            //
-            // In practice, with the construction below, you should basically never hit this.
-            // If you do, it's a sign your splitting heuristic is too aggressive.
-            panic!(
-                "Unsafe alias while seeding: ({},{}) -> {} would violate topological order",
-                left, right, existing_id
-            );
-        }
-    } else {
-        assert!(
-            *next_id < 256 + num_merges,
-            "Ran out of merge slots while creating seed merges"
-        );
-        let id = *next_id;
-        *next_id += 1;
-
-        if token_bytes.len() <= id as usize {
-            token_bytes.resize(id as usize + 1, Vec::new());
-        }
-        let owned = merged_bytes.to_vec();
-        token_bytes[id as usize] = owned.clone();
-        bytes_to_id.insert(owned, id);
-        id
-    };
-
-    merges.insert(pair, merged_id);
-    seed_merge_sequence.push((pair, merged_id));
-    merged_id
-}
-
-/// Ensure a token exists for `bytes`, creating merges in a deterministic way:
-///   - If we can split into (prefix, suffix) where suffix is already-known or "common", do that.
-///   - Otherwise fall back to left-to-right prefix folding (your current strategy).
-fn ensure_token(
-    bytes: &[u8],
-    dir: FoldDir,
-    next_id: &mut u32,
-    num_merges: u32,
-    token_bytes: &mut Vec<Vec<u8>>,
-    bytes_to_id: &mut AHashMap<Vec<u8>, u32>,
-    merges: &mut StdHashMap<Pair, u32>,
-    seed_merge_sequence: &mut Vec<(Pair, u32)>,
-    common_suffixes: &AHashSet<Vec<u8>>,
-) -> u32 {
-    // Fast path: already have this token.
-    if let Some(&id) = bytes_to_id.get(bytes) {
-        return id;
-    }
-
-    // Base: single byte tokens are the 0..255 "vocab".
-    if bytes.len() == 1 {
-        return bytes[0] as u32;
-    }
-
-    match dir {
-        FoldDir::LTR => {
-            // LTR mode keeps your existing "split off a suffix if it helps" lookahead.
-            if let Some(suf_len) = best_suffix_split_len(bytes, bytes_to_id, common_suffixes) {
-                let split_at = bytes.len() - suf_len;
-                let left_bytes = &bytes[..split_at];
-                let right_bytes = &bytes[split_at..];
-
-                // Prefix is built LTR, suffix is built RTL (the change you want).
-                let left_id = ensure_token(
-                    left_bytes,
-                    FoldDir::LTR,
-                    next_id,
-                    num_merges,
-                    token_bytes,
-                    bytes_to_id,
-                    merges,
-                    seed_merge_sequence,
-                    common_suffixes,
-                );
-                let right_id = ensure_token(
-                    right_bytes,
-                    FoldDir::RTL,
-                    next_id,
-                    num_merges,
-                    token_bytes,
-                    bytes_to_id,
-                    merges,
-                    seed_merge_sequence,
-                    common_suffixes,
-                );
-
-                // merged_bytes are exactly `bytes`
-                return ensure_merge_pair(
-                    left_id,
-                    right_id,
-                    bytes,
-                    next_id,
-                    num_merges,
-                    token_bytes,
-                    bytes_to_id,
-                    merges,
-                    seed_merge_sequence,
-                );
-            }
-
-            // Fallback: left-to-right prefix folding (same as before)
-            let mut left_id: u32 = bytes[0] as u32;
-            for &b in &bytes[1..] {
-                let right_id: u32 = b as u32;
-
-                let mut merged = token_bytes[left_id as usize].clone();
-                merged.extend_from_slice(&token_bytes[right_id as usize]);
-
-                left_id = ensure_merge_pair(
-                    left_id,
-                    right_id,
-                    merged.as_slice(),
-                    next_id,
-                    num_merges,
-                    token_bytes,
-                    bytes_to_id,
-                    merges,
-                    seed_merge_sequence,
-                );
-            }
-            left_id
-        }
-
-        FoldDir::RTL => {
-            // RTL mode: start from the right with the longest existing/common tail (len>=2),
-            // then prepend remaining bytes one-by-one:
-            //   ion  => on -> ion
-            //   tial => al -> ial -> tial
-            let mut tail_len = 1usize;
-            if let Some(len) = best_rtl_tail_len(bytes, bytes_to_id, common_suffixes) {
-                tail_len = len;
-            }
-
-            let (mut cur_id, mut cur_bytes): (u32, Vec<u8>) = if tail_len >= 2 {
-                let tail = &bytes[bytes.len() - tail_len..];
-                let id = ensure_token(
-                    tail,
-                    FoldDir::RTL,
-                    next_id,
-                    num_merges,
-                    token_bytes,
-                    bytes_to_id,
-                    merges,
-                    seed_merge_sequence,
-                    common_suffixes,
-                );
-                (id, tail.to_vec())
-            } else {
-                // Start from last byte token
-                let b = bytes[bytes.len() - 1];
-                (b as u32, vec![b])
-            };
-
-            // Prepend remaining bytes from right to left.
-            // If bytes = [t,i,a,l] and tail="al", cur_bytes="al":
-            //   prepend 'i' => "ial"
-            //   prepend 't' => "tial"
-            for idx in (0..(bytes.len() - tail_len)).rev() {
-                let b = bytes[idx];
-                let left_id = b as u32;
-
-                let mut new_bytes = Vec::with_capacity(cur_bytes.len() + 1);
-                new_bytes.push(b);
-                new_bytes.extend_from_slice(&cur_bytes);
-
-                cur_id = ensure_merge_pair(
-                    left_id,
-                    cur_id,
-                    new_bytes.as_slice(),
-                    next_id,
-                    num_merges,
-                    token_bytes,
-                    bytes_to_id,
-                    merges,
-                    seed_merge_sequence,
-                );
-                cur_bytes = new_bytes;
-            }
-
-            cur_id
-        }
-    }
-}
-
 // ------------------------ END helpers ------------------------
 
 impl Tokenizer {
@@ -467,11 +173,8 @@ impl Tokenizer {
         log::info!("Starting BPE training: {} merges to compute", num_merges);
         self.merges.clear();
 
-        // ---- Sort seed tokens: longer first, suffix-aware priority order ----
-        // Longest-first but if a seed has a *common suffix* (shared with >=1 other seed, len>=2),
-        // treat its "priority length" as that suffix length (push it down when suffix is short).
+        // ---- Sort seed tokens: longer first, deterministic tie-break by bytes ----
         if let Some(seeds) = seed_tokens.as_mut() {
-            // 1) Deterministic baseline ordering so dedup() is stable.
             seeds.sort_by(|a, b| {
                 // primary: descending length (longer seeds get lower IDs)
                 b.len()
@@ -481,46 +184,6 @@ impl Tokenizer {
             });
             // Drop exact duplicate seeds after sorting
             seeds.dedup();
-
-            // 2) Compute common suffixes (len>=2) across unique seeds.
-            let common_suffixes = compute_common_suffixes(seeds);
-
-            // 3) Precompute best (longest) common suffix length per seed.
-            // NOTE: common_suffixes is already sorted longest-first, so first match wins.
-            let mut best_common_suffix_len: AHashMap<Vec<u8>, usize> = AHashMap::new();
-            for s in seeds.iter() {
-                let mut best = 0usize;
-                for suf in common_suffixes.iter() {
-                    // suf is guaranteed shorter than s by construction, but keep the guard anyway.
-                    if s.len() > suf.len() && s.as_slice().ends_with(suf.as_slice()) {
-                        best = suf.len();
-                        break;
-                    }
-                }
-                best_common_suffix_len.insert(s.clone(), best);
-            }
-
-            // 4) Final sort:
-            //    - primary: descending "effective length"
-            //        * if seed has common suffix: effective_len = suffix_len
-            //        * else: effective_len = seed_len
-            //    - tie-break: previous order (real length desc, then lexicographic bytes asc)
-            seeds.sort_by(|a, b| {
-                let a_suf = *best_common_suffix_len.get(a).unwrap_or(&0);
-                let b_suf = *best_common_suffix_len.get(b).unwrap_or(&0);
-
-                let a_eff = if a_suf > 0 { a_suf } else { a.len() };
-                let b_eff = if b_suf > 0 { b_suf } else { b.len() };
-
-                b_eff
-                    .cmp(&a_eff)                         // bigger effective len first
-                    .then_with(|| b.len().cmp(&a.len())) // preserve previous "longest first"
-                    .then_with(|| a.cmp(b))              // deterministic tie-break
-            });
-            log::info!("Final seed order ({} seeds):", seeds.len());
-            for (i, s) in seeds.iter().enumerate() {
-                log::info!("  {:>3}. len={}  '{}'", i + 1, s.len(), String::from_utf8_lossy(s));
-            }
         }
 
         // ---- Maintain bytes for every token id during training to avoid duplicates ----
@@ -534,43 +197,64 @@ impl Tokenizer {
         let mut next_id: u32 = 256;
         let mut seed_merge_sequence: Vec<(Pair, u32)> = Vec::new();
 
-        // Precompute common suffix overlaps *before* building any seed merges.
-        let common_suffixes_set: AHashSet<Vec<u8>> = if let Some(seeds) = &seed_tokens {
-            let common = compute_common_suffixes(seeds);
-            common.into_iter().collect()
-        } else {
-            AHashSet::new()
-        };
-
         if let Some(seeds) = &seed_tokens {
-            log::info!(
-                "Building warm-start merges from {} seed tokens ({} common suffixes)",
-                seeds.len(),
-                common_suffixes_set.len()
-            );
+            // Rough upper bound check: each token of length L needs at most (L-1) merges
+            let mut upper_bound_merges: u32 = 0;
+            for seed in seeds {
+                let len = seed.len() as u32;
+                if len >= 2 {
+                    upper_bound_merges = upper_bound_merges.saturating_add(len - 1);
+                }
+            }
 
+            log::info!(
+                "Building warm-start merges from {} seed tokens (upper bound {} merges)",
+                seeds.len(),
+                upper_bound_merges
+            );
             for seed in seeds {
                 if seed.len() < 2 {
                     continue; // single-byte tokens already exist
                 }
 
-                // This will:
-                //   - split off a known/common suffix (e.g. "er") when available,
-                //   - build prefix left-to-right,
-                //   - build suffix (often a single merge),
-                //   - then combine prefix+suffix,
-                //   - and also reuse existing prefix tokens across later seeds (e.g. "int" for inter/intro).
-                let _seed_id = ensure_token(
-                    seed.as_slice(),
-                    FoldDir::LTR,
-                    &mut next_id,
-                    num_merges,
-                    &mut token_bytes,
-                    &mut bytes_to_id,
-                    &mut self.merges,
-                    &mut seed_merge_sequence,
-                    &common_suffixes_set,
-                );
+                // Left-to-right chain: (((b0,b1)->id0, b2)->id1, ...)
+                let mut left_id: u32 = seed[0] as u32;
+                for &b in &seed[1..] {
+                    let right_id: u32 = b as u32;
+                    let pair: Pair = (left_id, right_id);
+
+                    // Compute merged bytes from existing token bytes
+                    let mut merged = token_bytes[left_id as usize].clone();
+                    merged.extend_from_slice(&token_bytes[right_id as usize]);
+
+                    // Reuse an existing merge if we've already created it; otherwise allocate a new id.
+                    let merged_id: u32 = if let Some(&existing) = bytes_to_id.get(&merged) {
+                        existing
+                    } else {
+                        // Ensure we don't exceed the total merge budget
+                        assert!(
+                            next_id < 256 + num_merges,
+                            "Ran out of merge slots while creating seed merges"
+                        );
+                        let id = next_id;
+                        next_id += 1;
+
+                        if token_bytes.len() <= id as usize {
+                            token_bytes.resize(id as usize + 1, Vec::new());
+                        }
+                        token_bytes[id as usize] = merged.clone();
+                        bytes_to_id.insert(merged, id);
+                        id
+                    };
+
+                    // Register the pair -> merged_id mapping if not already present
+                    if !self.merges.contains_key(&pair) {
+                        self.merges.insert(pair, merged_id);
+                        seed_merge_sequence.push((pair, merged_id));
+                    }
+
+                    left_id = merged_id;
+                }
             }
         }
 

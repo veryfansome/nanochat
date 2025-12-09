@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 export NANOCHAT_BASE_DIR="$HOME/.cache/nanochat"
 mkdir -p $NANOCHAT_BASE_DIR

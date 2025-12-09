@@ -6,11 +6,41 @@ tokenizer = get_tokenizer()
 
 
 @pytest.mark.parametrize("word, expected_tokens", [
-    (" Affixes", [' Af', 'fix', 'es']),
-    (" affixes", [' affix', 'es']),
+    (" Able", [' Able']),
+    (" able", [' able']),
 
-    (" Androgenous", [' Andr', 'ogenous']),
-    (" androgenous", [' andr', 'ogenous']),
+    (" Ability", [' Ability']),
+    (" ability", [' ability']),
+
+    (" Act", [' Act']),
+    (" act", [' act']),
+
+    (" Action", [' Action']),
+    (" action", [' action']),
+
+    (" Activity", [' Activity']),
+    (" activity", [' activity']),
+
+    (" Affixes", [' Af', 'fixes']),
+    (" affixes", [' af', 'fixes']),
+
+    (" Affordability", [' Afford', 'ability']),
+    (" affordability", [' affordability']),
+
+    (" Ambulance", [' Ambul', 'ance']),
+    (" ambulance", [' ambulance']),
+
+    (" Amble", [' Amble']),
+    (" amble", [' amble']),
+
+    (" Anachronistic", [' Ana', 'chron', 'istic']),
+    (" anachronistic", [' anachron', 'istic']),
+
+    (" Androgenous", [' Andr', 'o', 'genous']),
+    (" androgenous", [' andr', 'o', 'genous']),
+
+    (" Android", [' Android']),
+    (" android", [' android']),
 
     (" Antidepressant", [' Anti', 'depress', 'ant']),
     (" antidepressant", [' antidepressant']),
@@ -24,17 +54,62 @@ tokenizer = get_tokenizer()
     (" Beneficiaries", [' Bene', 'fic', 'iaries']),
     (" beneficiaries", [' beneficiaries']),
 
+    (" Bicycle", [' Bicycle']),
+    (" bicycle", [' bicycle']),
+
+    (" Breakfast", [' Breakfast']),
+    (" breakfast", [' breakfast']),
+
+    (" Breakfix", [' Break', 'fix']),
+    (" breakfix", [' break', 'fix']),
+
+    (" Calculatingly", [' Calculating', 'ly']),
+    (" calculatingly", [' calculating', 'ly']),
+
+    (" Capable", [' Cap', 'able']),
+    (" capable", [' capable']),
+
+    (" Circumambulate", [' Circum', 'ambul', 'ate']),
+    (" circumambulate", [' circum', 'ambul', 'ate']),
+
     (" Closure", [' Clos', 'ure']),
     (" closure", [' closure']),
 
+    (" Cognizant", [' Cogn', 'iz', 'ant']),
+    (" cognizant", [' cognizant']),
+
     (" Collaborating", [' Collabor', 'ating']),
     (" collaborating", [' collaborating']),
+
+    (" Counterproductive", [' Counter', 'productive']),
+    (" counterproductive", [' counterproductive']),
+
+    (" Counterterror", [' Counter', 'terror']),
+    (" counterterror", [' counter', 'terror']),
+
+    (" Credentials", [' Cred', 'entials']),
+    (" credentials", [' credentials']),
 
     (" Cupboard", [' Cup', 'board']),
     (" cupboard", [' cupboard']),
 
     (" Definite", [' De', 'finite']),
     (" definite", [' definite']),
+
+    (" Demigod", [' Demi', 'god']),
+    (" demigod", [' demi', 'god']),
+
+    (" Dermatology", [' Dermatology']),
+    (" dermatology", [' dermatology']),
+
+    (" Dermatosis", [' Dermat', 'osis']),
+    (" dermatosis", [' dermat', 'osis']),
+
+    (" Dermatoglyphics", [' Dermat', 'oglyph', 'ics']),
+    (" dermatoglyphics", [' dermat', 'oglyph', 'ics']),
+
+    (" dictation", [' dictation']),
+    (" dictation", [' dictation']),
 
     (" Disproportionately", [' Dis', 'pro', 'portion', 'ately']),
     (" disproportionately", [' disproportionately']),
@@ -44,6 +119,9 @@ tokenizer = get_tokenizer()
 
     (" Eruption", [' E', 'ruption']),
     (" eruption", [' eruption']),
+
+    (" Excrete", [' Ex', 'crete']),
+    (" excrete", [' excrete']),
 
     (" Hematology", [' Hemat', 'ology']),
     (" hematology", [' hemat', 'ology']),
@@ -69,6 +147,9 @@ tokenizer = get_tokenizer()
     (" Infinitesimal", [' In', 'fin', 'it', 'esimal']),
     (" infinitesimal", [' infinit', 'esimal']),
 
+    (" Interconnect", [' Inter', 'connect']),
+    (" interconnect", [' interconnect']),
+
     (" Interruption", [' Inter', 'ruption']),
     (" interruption", [' interruption']),
 
@@ -90,11 +171,29 @@ tokenizer = get_tokenizer()
     (" Monomorphemic", [' Mono', 'morph', 'emic']),
     (" monomorphemic", [' mono', 'morph', 'emic']),
 
-    (" Noctambulation", [' Noct', 'ambul', 'ation']),
-    (" noctambulation", [' noct', 'ambul', 'ation']),
+    (" Monometallic", [' Mono', 'metallic']),
+    (" monometallic", [' mono', 'metallic']),
 
-    (" Septicemia", [' Septic', 'emia']),
-    (" septicemia", [' septic', 'emia']),
+    (" Motorcycle", [' Motor', 'cycle']),
+    (" motorcycle", [' motorcycle']),
+
+    (" Overrun", [' Over', 'run']),
+    (" overrun", [' overrun']),
+
+    (" Preamble", [' Pre', 'amble']),
+    (" preamble", [' preamble']),
+
+    (" Pushup", [' Push', 'up']),
+    (" pushup", [' push', 'up']),
+
+    (" Quintessence", [' Quint', 'essence']),
+    (" quintessence", [' quint', 'essence']),
+
+    (" Quintet", [' Quint', 'et']),
+    (" quintet", [' quint', 'et']),
+
+    (" Somnambulate", [' Somn', 'ambul', 'ate']),
+    (" somnambulate", [' somn', 'ambul', 'ate']),
 
     (" Staphylococcus", [' Staphylococcus']),
     (" staphylococcus", [' staphylo', 'coccus']),
@@ -105,14 +204,35 @@ tokenizer = get_tokenizer()
     (" Syncretistic", [' Syn', 'cret', 'istic']),
     (" syncretistic", [' syn', 'cret', 'istic']),
 
+    (" Taxidermy", [' Taxi', 'derm', 'y']),
+    (" taxidermy", [' taxi', 'derm', 'y']),
+
+    (" Telephonics", [' Tele', 'phon', 'ics']),
+    (" telephonics", [' tele', 'phon', 'ics']),
+
+    (" Telephony", [' Tele', 'phony']),
+    (" telephony", [' telephony']),
+
     (" Toxemia", [' Tox', 'emia']),
     (" toxemia", [' tox', 'emia']),
+
+    (" Tricycle", [' Tri', 'cycle']),
+    (" tricycle", [' tri', 'cycle']),
+
+    (" Unbranded", [' Un', 'brand', 'ed']),
+    (" unbranded", [' un', 'brand', 'ed']),
 
     (" Uncharacteristically", [' Un', 'character', 'istically']),
     (" uncharacteristically", [' un', 'character', 'istically']),
 
     (" Understood", [' Under', 'stood']),
     (" understood", [' understood']),
+
+    (" Underweight", [' Under', 'weight']),
+    (" underweight", [' underweight']),
+
+    (" Unicycle", [' Uni', 'cycle']),
+    (" unicycle", [' uni', 'cycle']),
 
     (" Unmindfully", [' Un', 'mind', 'fully']),
     (" unmindfully", [' un', 'mind', 'fully']),

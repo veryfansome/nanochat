@@ -3,13 +3,16 @@
 versatile_morphemes: [
   "able",
   "act",
+  "amble",
   "ambul", # from the Latin ambulare, meaning "to walk"
   "andr", # from the Greek word anēr, meaning "man" or "male"
   "ate",
-  "break",
+  "brand",
   "cali", # from the Greek kallos to mean "beautiful"
   "calli", # from the Greek kallos to mean "beautiful"
   "calo", # from the Greek kallos to mean "beautiful"
+  "cent",
+  "character",
   "chondr", # from Greek chondros, meaning "cartilage" or "grain"
   "chron", # from the Greek word khronos, meaning "time"
   "clos", # from the Latin root morpheme meaning "shut" or "close"
@@ -17,16 +20,24 @@ versatile_morphemes: [
   "cogn", # from the Latin cognoscere, meaning "to get to know" or "to know"
   "counter", # means "against", "in opposition", or "contrary"
   "cred", # meaning "believe" or "trust"
+  "cret", # from Greek, meaning "to mix" or "to blend"
   "cycle",
+  "demi", # from Old French, meaning half
   "derm", # from the Greek word derma, meaning "skin"
+  "dermat", # from the Greek word derma, meaning "skin"
   "dict", # from Latin, meaning "say" or "speak"
+  "en", # means "to cause to be in (a certain state)" or "to cover with", and also used to form past participles of certain verbs
+  "essence",
   "establish",
   "fail",
   "fin", # from Latin "finis", meaning "end",  or "limit"
+  "finite",
   "fix",
   "form",
   "gen", # from the Greek word for "produce" or "beget"
+  "glyph",
   "graph",
+  "hex",
   "hood",
   "hydr", # from the Greek word hudōr, meaning "water"; can be hydr + o
   "hyphen",
@@ -39,6 +50,7 @@ versatile_morphemes: [
   "log",
   "macro",
   "meter",
+  "metal",
   "micro",
   "mix",
   "mono",
@@ -56,17 +68,24 @@ versatile_morphemes: [
   "portion",
   "post",
   "press",
+  "quad",
   "quaver",
   "rect", # from the Latin regere, which means "to guide, rule, or make straight/right"
   "run",
   "rupt", # means "breaking" or "bursting"
   "scop", # means "to look at" or "examine"
+  "semi", # from Latin, meaning "half"
+  "sept", # from Latin, meaning "seven"
   "septic",
+  "sext", # from the Latin word sextus, meaning "sixth"
+  "somn", # from the Latin word somnus, meaning "sleep"
   "spect", # from Latin, meaning to see or to watch
   "stand",
   "staphylo", # from the Greek word staphyle, meaning "bunch of grapes"
   "sthen", # from the Greek word sthenos, meaning "strength"
   "stood",
+  "taxi",
+  "tetra", # from Greek, meaning four
   "therm", # from Greek, meaning "heat" or "warm"
   "under",
   "vers", # alternative form of vert
@@ -90,13 +109,14 @@ prefixes: [
   "as", # form of ad before s
   "at", # form of ad before t
   "bene", # means "good" or "well"
+  "bi", # from Latin, meaning two
   "bio", # from the Greek word bios, meaning "life"
   "co", # from the Latin prefix com-, meaning "with", "together", or "jointly"
   "cor", # from Latin "com", meaning "with," "together," or "completely"
-  "demi", # from Old French, meaning half
+  "dec", # from Greek, meaning ten
+  "di", # from Greek, meaning two
   "dis", # used to express negation, often with verbs, nouns, and adjectives of Latin origin (see: un, in)
   "eco", # from the Ancient Greek word oikos, meaning "house," "household," or "environment"
-  "en", # means "to cause to be in (a certain state)" or "to cover with"
   "endo", # from the Greek word endon, which means "within"
   "ex", # from Latin, meaning "out" or "from", or acts as an intensive prefix, or "former" when used with a hyphen
   "exo", # from Greek and means "outside," "external," or "originating from outside"
@@ -117,13 +137,16 @@ prefixes: [
   "ir", # used to express negation, form of *in* used before words starting with r (see: in)
   "mis", # means bad, wrong, or incorrectly
   "mito", # from the Greek word mitos, meaning "thread"
+  "oct", # from Greek, meaning eight
+  "pent", # from Greek, meaning five
   "phil", # from ancient Greek, meaning "dear, beloved, or loving"
   "pre", # means before
   "pro", # indicates movement or pushing forward or being in favor of something
+  "quint", # from Latin, meaning five
   "re", # means again
-  "semi", # from Latin, meaning "half"
+  "retro",
   "tele", # from the Greek word tēle meaning "far off" or "at a distance"
-  "un", # used to express negation, often with verbs, nouns, and adjectives of Old English origin  (see: dis, in)
+  "tri", # from Latin and Greek, meaning three
 ]
 
 # Suffixes and bound morphemes that don't start words
@@ -137,7 +160,7 @@ inner_morphemes: [
   "duc", # from Latin verb, meaning "to lead" or "to bring"
   "ed", # changes verbs to past tense, can be used to form nouns from adjectives
   "em", # from the Greek haima, meaning "blood"
-  "en", # used to form past participles of certain verbs
+  "emia", # means a "condition of the blood" or the "presence of a substance in the blood"
   "er", # changes adjectives to comparatives or verbs to nouns, as in a person who performs an action
   "es", # changes nouns to plural or denotes 3rd person singular present verbs
   "ese", # means "belonging to" or "from a specific place"
@@ -153,6 +176,7 @@ inner_morphemes: [
   "ic", # forms adjectives from nouns or other bases, typically meaning "relating to" or "having the characteristics of"
   "ile", # forms adjectives and sometimes nouns, typically denoting capability, susceptibility, aptitude, or "of or relating to"
   "ing", # indicates an ongoing action
+  "ise", # used to form verbs, typically from nouns or adjectives, with the general meaning of "to make" or "to convert into"
   "ish", # from Old English, for denoting origin or belonging, but is also used to mean "like X" or "somewhat"
   "ism", # forms nouns
   "ite", # used to form words meaning "a native, resident, or member of a place", "a follower or a member of a group or movement", or "a mineral or rock"
