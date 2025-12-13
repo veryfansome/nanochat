@@ -30,15 +30,19 @@ FORCED_PAIRS = [
     (" of", " the"),
     (",", " and"),
     (" in", " the"),
+    (".", " The"),
     (",", " the"),
     (" to", " the"),
     (" on", " the"),
-    (" and", " the"),
+    #(" and", " the"),
     (" to", " be"),
     (",", " but"),
     (" is", " a"),
     (" for", " the"),
     (" from", " the"),
+    (".", " In"),
+    (".", " It"),
+    (".", " This"),
     (" of", " a"),
     (" with", " the"),
     (",", " which"),
@@ -46,7 +50,7 @@ FORCED_PAIRS = [
     (" by", " the"),
     (" can", " be"),
     (" at", " the"),
-    #(",", " a"),  # May conflict with ", an", ", as"
+    (",", " a"),
     (" is", " the"),
     (" that", " the"),
     (" as", " a"),
@@ -55,32 +59,63 @@ FORCED_PAIRS = [
     (" it", " is"),
     (" such", " as"),
     (",", " as"),
-    (",", " in"),
-    (" with", " a"),
-    (" have", " been"),
-    (" one", " of"),
-    (" has", " been"),
-    (",", " you"),
-    (",", " we"),
-    (" may", " be"),
-    #(",", " they"),
-    (" as", " well"),
-
     (" as", " the"),
-    (" will", " be"),
-    (" more", " than"),
-    (" about", " the"),
-    (" into", " the"),
+    (" with", " a"),
+    #(" the", " same"),
+    (".", " A"),
+    (".", " They"),
+    #(",", " in"),  # Conflicts with (" in", " the") and (" in", " a")
     (" to", " a"),
+    (" have", " been"),
+    #(" one", " of"),  # Conflicts with (" of", " the") and (" of", " a")
+    (" will", " be"),
+    (" has", " been"),
+    #(" the", " first"),
+    (".", " If"),
+    (" for", " a"),
+    (",", " you"),
+    #(" is", " not"),
+    #(" the", " most"),
+    (",", " we"),
+    #(" the", " world"),
+    (" may", " be"),
+    (",", " they"),
+    (" as", " well"),
+    (".", " For"),
+    (" into", " the"),
+    (".", " But"),
+    (" It", " is"),
+    (".", " He"),
+    #(" and", " a"),
+    #(",", " with"),
+    #(" part", " of"),
+    (" of", " this"),
     (" on", " a"),
+    #(" number", " of"),
+    #(" they", " are"),
+    (" have", " a"),
+    #(" you", " can"),
+    (" more", " than"),
+    #(" need", " to"),
+    (".", " We"),
+    (" about", " the"),
+    (".", " These"),
+    (" However", ","),
+
+    # When followed by numerals or non-words
+    #(",", " "),
+    #(".", " "),
+    #(" in", " "),
+    #(" the", " "),
+    #(" of", " "),
+    #(" to", " "),
+    #(" and", " "),
 ]
-FORCED_PAIRS_EXPR = "|".join([a + b for a, b in FORCED_PAIRS])
+FORCED_PAIRS_EXPR = "(" + ("|".join([a + b for a, b in FORCED_PAIRS])) + ")(?=([^a-z]|$))"
 # NOTE: this split pattern deviates from GPT-4 in that we use \p{N}{1,2} instead of \p{N}{1,3}
 # I did this because I didn't want to "waste" too many tokens on numbers for smaller vocab sizes.
 # I haven't validated that this is actually a good idea, TODO.
-#SPLIT_PATTERN = r"""'(?i:[sdmt]|ll|ve|re)|""" + FORCED_PAIRS_EXPR + r"""|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
 SPLIT_PATTERN = FORCED_PAIRS_EXPR + r"""|'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
-#SPLIT_PATTERN = r""" as well|'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
 
 # -----------------------------------------------------------------------------
 # Generic GPT-4-style tokenizer based on HuggingFace Tokenizer
@@ -434,10 +469,10 @@ class RustBPETokenizer:
 # -----------------------------------------------------------------------------
 # nanochat-specific convenience functions
 
-def get_tokenizer():
+def get_tokenizer(tokenizer_dir_name="tokenizer"):
     from nanochat.common import get_base_dir
     base_dir = get_base_dir()
-    tokenizer_dir = os.path.join(base_dir, "tokenizer")
+    tokenizer_dir = os.path.join(base_dir, tokenizer_dir_name)
     # return HuggingFaceTokenizer.from_directory(tokenizer_dir)
     return RustBPETokenizer.from_directory(tokenizer_dir)
 
