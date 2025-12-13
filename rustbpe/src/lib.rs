@@ -154,6 +154,163 @@ fn count_pairs_parallel(
         )
 }
 
+#[derive(Clone, Debug)]
+struct ForcedMergeSpec {
+    left_bytes: Vec<u8>,
+    right_bytes: Vec<u8>,
+}
+
+impl ForcedMergeSpec {
+    #[inline]
+    fn new(left: &str, right: &str) -> Self {
+        Self {
+            left_bytes: left.as_bytes().to_vec(),
+            right_bytes: right.as_bytes().to_vec(),
+        }
+    }
+}
+
+#[inline]
+fn find_pair_positions(words: &[Word], counts: &[i32], pair: Pair) -> AHashSet<usize> {
+    let (a, b) = pair;
+    let mut pos = AHashSet::new();
+    for (i, w) in words.iter().enumerate() {
+        if counts[i] == 0 || w.ids.len() < 2 {
+            continue;
+        }
+        if w.ids.windows(2).any(|w2| w2[0] == a && w2[1] == b) {
+            pos.insert(i);
+        }
+    }
+    pos
+}
+
+#[inline]
+fn apply_merge_to_words(
+    words: &mut [Word],
+    counts: &[i32],
+    pair_counts: &mut AHashMap<Pair, i32>,
+    heap: &mut OctonaryHeap<MergeJob>,
+    pair: Pair,
+    new_id: u32,
+    pos: &AHashSet<usize>,
+) {
+    let mut local_pos_updates: AHashMap<Pair, AHashSet<usize>> = AHashMap::new();
+
+    for &word_idx in pos {
+        let changes = words[word_idx].merge_pair(pair, new_id);
+        for (p, delta) in changes {
+            let delta_total = delta * counts[word_idx];
+            if delta_total != 0 {
+                *pair_counts.entry(p).or_default() += delta_total;
+                if delta > 0 {
+                    local_pos_updates.entry(p).or_default().insert(word_idx);
+                }
+            }
+        }
+    }
+
+    for (p, ppos) in local_pos_updates {
+        let cnt = *pair_counts.get(&p).unwrap_or(&0);
+        if cnt > 0 {
+            heap.push(MergeJob {
+                pair: p,
+                count: cnt as u64,
+                pos: ppos,
+            });
+        }
+    }
+}
+
+/// Try to apply exactly ONE forced-merge whose operands already exist.
+/// Returns (pair, new_id, created_new_token) if applied.
+fn try_apply_one_forced_merge(
+    forced: &[ForcedMergeSpec],
+    forced_done: &mut [bool],
+    token_bytes: &mut Vec<Vec<u8>>,
+    bytes_to_id: &mut AHashMap<Vec<u8>, u32>,
+    merges: &mut StdHashMap<Pair, u32>,
+    words: &mut [Word],
+    counts: &[i32],
+    pair_counts: &mut AHashMap<Pair, i32>,
+    heap: &mut OctonaryHeap<MergeJob>,
+    merges_done: &mut u32,
+    num_merges: u32,
+) -> Option<(Pair, u32, bool)> {
+    for (idx, spec) in forced.iter().enumerate() {
+        if forced_done[idx] {
+            continue;
+        }
+
+        let left_id = match bytes_to_id.get(&spec.left_bytes) {
+            Some(&v) => v,
+            None => continue,
+        };
+        let right_id = match bytes_to_id.get(&spec.right_bytes) {
+            Some(&v) => v,
+            None => continue,
+        };
+
+        let pair = (left_id, right_id);
+
+        // If the merge already exists, still apply it to any remaining occurrences.
+        if let Some(&existing_new_id) = merges.get(&pair) {
+            let pos = find_pair_positions(words, counts, pair);
+            apply_merge_to_words(words, counts, pair_counts, heap, pair, existing_new_id, &pos);
+            forced_done[idx] = true;
+            return Some((pair, existing_new_id, false));
+        }
+
+        // Compute concatenated bytes
+        let mut concat = Vec::with_capacity(spec.left_bytes.len() + spec.right_bytes.len());
+        concat.extend_from_slice(&spec.left_bytes);
+        concat.extend_from_slice(&spec.right_bytes);
+
+        // Prefer reusing an existing token id if the concatenated node already exists.
+        let mut created_new_token = false;
+        let new_id = if let Some(&eid) = bytes_to_id.get(&concat) {
+            eid
+        } else {
+            // Need to create a new token node; consumes a merge slot.
+            if *merges_done >= num_merges {
+                log::warn!(
+                    "Forced merge {:?} skipped: no remaining vocab slots (merges_done={}, num_merges={})",
+                    (String::from_utf8_lossy(&spec.left_bytes), String::from_utf8_lossy(&spec.right_bytes)),
+                    merges_done,
+                    num_merges
+                );
+                forced_done[idx] = true; // avoid spinning forever
+                continue;
+            }
+
+            let nid = 256 + *merges_done;
+
+            if token_bytes.len() <= nid as usize {
+                token_bytes.resize(nid as usize + 1, Vec::new());
+            }
+            token_bytes[nid as usize] = concat.clone();
+
+            // only insert if absent; if present via some weird duplicate, keep the earlier mapping
+            bytes_to_id.entry(concat).or_insert(nid);
+
+            *merges_done += 1;
+            created_new_token = true;
+            nid
+        };
+
+        merges.insert(pair, new_id);
+
+        // Apply the merge to the corpus state so subsequent merges see the new structure.
+        let pos = find_pair_positions(words, counts, pair);
+        apply_merge_to_words(words, counts, pair_counts, heap, pair, new_id, &pos);
+
+        forced_done[idx] = true;
+        return Some((pair, new_id, created_new_token));
+    }
+
+    None
+}
+
 // ------------------------ END helpers ------------------------
 
 impl Tokenizer {
@@ -161,11 +318,32 @@ impl Tokenizer {
     /// Core incremental BPE training given unique words and their counts.
     /// `words`: one entry per unique chunk (Vec<u32> of token-ids/bytes).
     /// `counts`: same length as `words`, count per chunk.
-    fn train_core_incremental(&mut self, mut words: Vec<Word>, counts: Vec<i32>, vocab_size: u32) {
+    fn train_core_incremental(
+        &mut self,
+        mut words: Vec<Word>,
+        counts: Vec<i32>,
+        vocab_size: u32,
+        forced_pairs: Option<Vec<(String, String)>>,
+    ) {
         assert!(vocab_size >= 256, "vocab_size must be at least 256");
         let num_merges = vocab_size - 256;
         log::info!("Starting BPE training: {} merges to compute", num_merges);
         self.merges.clear();
+
+        // --- DAG bookkeeping: token_id -> bytes, and bytes -> token_id (existence test for forced merges) ---
+        let mut token_bytes: Vec<Vec<u8>> = (0..256_u32).map(|i| vec![i as u8]).collect();
+        let mut bytes_to_id: AHashMap<Vec<u8>, u32> = AHashMap::with_capacity(vocab_size as usize + 16);
+        for i in 0..256_u32 {
+            bytes_to_id.insert(vec![i as u8], i);
+        }
+
+        // --- Forced merges config ---
+        let forced_specs: Vec<ForcedMergeSpec> = forced_pairs
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(l, r)| ForcedMergeSpec::new(&l, &r))
+            .collect();
+        let mut forced_done = vec![false; forced_specs.len()];
 
         // ---- Initial pair_counts and where_to_update (parallel) ----
         log::info!("Computing initial pair counts from {} unique sequences", words.len());
@@ -191,6 +369,40 @@ impl Tokenizer {
         let mut last_log_percent = 0u32;
 
         while merges_done < num_merges {
+            // 1) Forced merges: as soon as both operands exist as DAG nodes, add + apply the merge.
+            if let Some((pair, new_id, created)) = try_apply_one_forced_merge(
+                &forced_specs,
+                &mut forced_done,
+                &mut token_bytes,
+                &mut bytes_to_id,
+                &mut self.merges,
+                &mut words,
+                &counts,
+                &mut pair_counts,
+                &mut heap,
+                &mut merges_done,
+                num_merges,
+            ) {
+                log::info!(
+                    "Forced merge applied: {:?} -> {}{}",
+                    pair,
+                    new_id,
+                    if created { " (new token)" } else { "" }
+                );
+
+                // progress log (same scheme as you use)
+                let current_percent = (merges_done * 100) / num_merges;
+                if current_percent > last_log_percent {
+                    log::info!("Progress: {}% ({}/{} merges) - Forced merge: {:?} -> {}",
+                        current_percent, merges_done, num_merges, pair, new_id
+                    );
+                    last_log_percent = current_percent;
+                }
+
+                continue; // try more forced merges / heap merges
+            }
+
+            // 2) Normal merge selection from heap
             let Some(mut top) = heap.pop() else { break; };
 
             // Lazy refresh
@@ -210,34 +422,26 @@ impl Tokenizer {
             let new_id = 256 + merges_done;
             self.merges.insert(top.pair, new_id);
 
-            // Merge this pair in all words where it occurs
-            let mut local_pos_updates: AHashMap<Pair, AHashSet<usize>> = AHashMap::new();
-            for &word_idx in &top.pos {
-                // Apply merge to this word and collect pair-count deltas
-                let changes = words[word_idx].merge_pair(top.pair, new_id);
-                // Update global pair counts based on this word's count
-                for (pair, delta) in changes {
-                    let delta_total = delta * counts[word_idx];
-                    if delta_total != 0 {
-                        *pair_counts.entry(pair).or_default() += delta_total;
-                        if delta > 0 {
-                            local_pos_updates.entry(pair).or_default().insert(word_idx);
-                        }
-                    }
-                }
+            // Update DAG (token_bytes + bytes_to_id) so forced merges can “see” newly created tokens.
+            let (left, right) = top.pair;
+            let mut merged_bytes = token_bytes[left as usize].clone();
+            merged_bytes.extend_from_slice(&token_bytes[right as usize]);
+            if token_bytes.len() <= new_id as usize {
+                token_bytes.resize(new_id as usize + 1, Vec::new());
             }
+            token_bytes[new_id as usize] = merged_bytes.clone();
+            bytes_to_id.entry(merged_bytes).or_insert(new_id);
 
-            // Add the updated pair counts back to the heap
-            for (pair, pos) in local_pos_updates {
-                let cnt = *pair_counts.get(&pair).unwrap_or(&0);
-                if cnt > 0 {
-                    heap.push(MergeJob {
-                        pair,
-                        count: cnt as u64,
-                        pos,
-                    });
-                }
-            }
+            // Merge this pair in all words where it occurs (and update counts/heap)
+            apply_merge_to_words(
+                &mut words,
+                &counts,
+                &mut pair_counts,
+                &mut heap,
+                top.pair,
+                new_id,
+                &top.pos,
+            );
 
             merges_done += 1;
 
@@ -272,8 +476,8 @@ impl Tokenizer {
     /// Train from a streaming iterator (parallel ingestion).
     /// We refill a Rust Vec<String> buffer under the GIL, then release the GIL
     /// to do the heavy splitting and counting **in parallel** with rayon.
-    #[pyo3(signature = (iterator, vocab_size, buffer_size=8192, pattern=None))]
-    #[pyo3(text_signature = "(self, iterator, vocab_size, buffer_size=8192, pattern=None)")]
+    #[pyo3(signature = (iterator, vocab_size, buffer_size=8192, pattern=None, forced_pairs=None))]
+    #[pyo3(text_signature = "(self, iterator, vocab_size, buffer_size=8192, pattern=None, forced_pairs=None)")]
     pub fn train_from_iterator(
         &mut self,
         py: pyo3::Python<'_>,
@@ -281,6 +485,7 @@ impl Tokenizer {
         vocab_size: u32,
         buffer_size: usize,
         pattern: Option<String>,
+        forced_pairs: Option<Vec<(String, String)>>,
     ) -> PyResult<()> {
         // Use provided pattern or default to GPT-4 pattern
         let pattern_str = pattern.unwrap_or_else(|| GPT4_PATTERN.to_string());
@@ -385,7 +590,7 @@ impl Tokenizer {
             cvec.push(c);
         }
 
-        self.train_core_incremental(words, cvec, vocab_size);
+        self.train_core_incremental(words, cvec, vocab_size, forced_pairs);
         Ok(())
     }
 

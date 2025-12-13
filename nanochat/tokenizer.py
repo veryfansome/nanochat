@@ -24,10 +24,63 @@ SPECIAL_TOKENS = [
     "<|output_end|>",
 ]
 
+# Forced merges: when BOTH tokens exist in the merge DAG, add a merge (left,right)->(left||right).
+# NOTE: Sorted based on frequency of occurrence in text
+FORCED_PAIRS = [
+    (" of", " the"),
+    (",", " and"),
+    (" in", " the"),
+    (",", " the"),
+    (" to", " the"),
+    (" on", " the"),
+    (" and", " the"),
+    (" to", " be"),
+    (",", " but"),
+    (" is", " a"),
+    (" for", " the"),
+    (" from", " the"),
+    (" of", " a"),
+    (" with", " the"),
+    (",", " which"),
+    (" in", " a"),
+    (" by", " the"),
+    (" can", " be"),
+    (" at", " the"),
+    #(",", " a"),  # May conflict with ", an", ", as"
+    (" is", " the"),
+    (" that", " the"),
+    (" as", " a"),
+    (",", " it"),
+    (",", " or"),
+    (" it", " is"),
+    (" such", " as"),
+    (",", " as"),
+    (",", " in"),
+    (" with", " a"),
+    (" have", " been"),
+    (" one", " of"),
+    (" has", " been"),
+    (",", " you"),
+    (",", " we"),
+    (" may", " be"),
+    #(",", " they"),
+    (" as", " well"),
+
+    (" as", " the"),
+    (" will", " be"),
+    (" more", " than"),
+    (" about", " the"),
+    (" into", " the"),
+    (" to", " a"),
+    (" on", " a"),
+]
+FORCED_PAIRS_EXPR = "|".join([a + b for a, b in FORCED_PAIRS])
 # NOTE: this split pattern deviates from GPT-4 in that we use \p{N}{1,2} instead of \p{N}{1,3}
 # I did this because I didn't want to "waste" too many tokens on numbers for smaller vocab sizes.
 # I haven't validated that this is actually a good idea, TODO.
-SPLIT_PATTERN = r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
+#SPLIT_PATTERN = r"""'(?i:[sdmt]|ll|ve|re)|""" + FORCED_PAIRS_EXPR + r"""|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
+SPLIT_PATTERN = FORCED_PAIRS_EXPR + r"""|'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
+#SPLIT_PATTERN = r""" as well|'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
 
 # -----------------------------------------------------------------------------
 # Generic GPT-4-style tokenizer based on HuggingFace Tokenizer
@@ -166,7 +219,9 @@ class RustBPETokenizer:
         # the special tokens are inserted later in __init__, we don't train them here
         vocab_size_no_special = vocab_size - len(SPECIAL_TOKENS)
         assert vocab_size_no_special >= 256, f"vocab_size_no_special must be at least 256, got {vocab_size_no_special}"
-        tokenizer.train_from_iterator(text_iterator, vocab_size_no_special, pattern=SPLIT_PATTERN)
+        tokenizer.train_from_iterator(text_iterator, vocab_size_no_special,
+                                      forced_pairs=FORCED_PAIRS,
+                                      pattern=SPLIT_PATTERN)
         # 2) construct the associated tiktoken encoding for inference
         pattern = tokenizer.get_pattern()
         mergeable_ranks_list = tokenizer.get_mergeable_ranks()
