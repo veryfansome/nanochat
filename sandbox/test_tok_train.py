@@ -10,6 +10,17 @@ def _test_tokenization(text, expected_tokens):
     tokens = [tokenizer.decode([tok]) for tok in enc]
     assert tokens == expected_tokens, f"Expected {expected_tokens}, got {tokens}"
 
+#@pytest.mark.parametrize("text, expected", [
+#    ("The product of 2 and 5 is 10",
+#     ["The", " product", " of", " 2", " and", " 5", " is", " 1", "0"]),
+#    ("The product of 20 and 5 is 100",
+#     ["The", " product", " of", " 2", "0", " and", " 5", " is", " 1", "00"]),
+#    ("Add 2 to 5 to get 7",
+#     ["Add", " 2", " to", " 5", " to", " get", " 7"]),
+#])
+#def test_leading_digits(text: str, expected: list[str]):
+#    _test_tokenization(text, expected)
+
 @pytest.mark.parametrize("text, expected", [
     ("I'm of the opinion",
      ["I", "'m", " of the", " opinion"]),
@@ -27,6 +38,8 @@ def test_comma_and(text: str, expected: list[str]):
 @pytest.mark.parametrize("text, expected", [
     ("He did forget in the end",
      ["He", " did", " forget", " in the", " end"]),
+    ("We saw a deer, in the backyard",
+     ["We", " saw", " a", " deer", ", in the", " backyard"]),
 ])
 def test_in_the(text: str, expected: list[str]):
     _test_tokenization(text, expected)
@@ -52,13 +65,6 @@ def test_comma_the(text: str, expected: list[str]):
 def test_to_the(text: str, expected: list[str]):
     _test_tokenization(text, expected)
 
-#@pytest.mark.parametrize("text, expected", [
-#    ("In the years 2020, 2022, and 2023",
-#     ["In", " the", " years", " ", "20", "20", ", ", "20", "22", ", and", " ", "20", "23"]),
-#])
-#def test_comma_space(text: str, expected: list[str]):
-#    _test_tokenization(text, expected)
-
 @pytest.mark.parametrize("text, expected", [
     ("I saw him on the train",
      ["I", " saw", " him", " on the", " train"]),
@@ -66,12 +72,14 @@ def test_to_the(text: str, expected: list[str]):
 def test_on_the(text: str, expected: list[str]):
     _test_tokenization(text, expected)
 
-#@pytest.mark.parametrize("text, expected", [
-#    ("Get us the milk and the eggs",
-#     ["Get", " us", " the", " milk", " and the", " eggs"]),
-#])
-#def test_and_the(text: str, expected: list[str]):
-#    _test_tokenization(text, expected)
+@pytest.mark.parametrize("text, expected", [
+    ("Get us the milk and the eggs",
+     ["Get", " us", " the", " milk", " and the", " eggs"]),
+    ("Yes, and the thing happened again",
+     ["Yes", ", and the", " thing", " happened", " again"]),
+])
+def test_and_the(text: str, expected: list[str]):
+    _test_tokenization(text, expected)
 
 @pytest.mark.parametrize("text, expected", [
     ("To be, or not to be",
@@ -139,8 +147,19 @@ def test_of_a(text: str, expected: list[str]):
     _test_tokenization(text, expected)
 
 @pytest.mark.parametrize("text, expected", [
+    ("Order a pizza, with extra cheese",
+     ["Order", " a", " pizza", ", with", " extra", " cheese"]),
+    ("Order a pizza, without meat",
+     ["Order", " a", " pizza", ",", " without", " meat"]),
+])
+def test_comma_with(text: str, expected: list[str]):
+    _test_tokenization(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
     ("He is skilled with the knife",
      ["He", " is", " skilled", " with the", " knife"]),
+    ("Order a pizza, with the special sauce",
+     ["Order", " a", " pizza", ", with the", " special", " sauce"]),
 ])
 def test_with_the(text: str, expected: list[str]):
     _test_tokenization(text, expected)
@@ -152,16 +171,11 @@ def test_with_the(text: str, expected: list[str]):
 def test_comma_which(text: str, expected: list[str]):
     _test_tokenization(text, expected)
 
-#@pytest.mark.parametrize("text, expected", [
-#    (" meant war. 1066 would mark",
-#     [" meant", " war", ". ", "10", "66", " would", " mark"]),
-#])
-#def test_period_space(text: str, expected: list[str]):
-#    _test_tokenization(text, expected)
-
 @pytest.mark.parametrize("text, expected", [
     ("He is in a real bind",
      ["He", " is", " in a", " real", " bind"]),
+    ("We saw a deer, in a big cage",
+     ["We", " saw", " a", " deer", ", in a", " big", " cage"]),
 ])
 def test_in_a(text: str, expected: list[str]):
     _test_tokenization(text, expected)
@@ -186,13 +200,6 @@ def test_can_be(text: str, expected: list[str]):
 ])
 def test_at_the(text: str, expected: list[str]):
     _test_tokenization(text, expected)
-
-#@pytest.mark.parametrize("text, expected", [
-#    ("He died in 1346",
-#     ["He", " died", " in ", "13", "46"]),
-#])
-#def test_in_space(text: str, expected: list[str]):
-#    _test_tokenization(text, expected)
 
 @pytest.mark.parametrize("text, expected", [
     ("He gave her a rose, an expression of his love",
@@ -280,6 +287,8 @@ def test_as_the(text: str, expected: list[str]):
 @pytest.mark.parametrize("text, expected", [
     ("He came back with a gun",
      ["He", " came", " back", " with a", " gun"]),
+    ("Order a pizza, with a mystery topping",
+     ["Order", " a", " pizza", ", with a", " mystery", " topping"]),
 ])
 def test_with_a(text: str, expected: list[str]):
     _test_tokenization(text, expected)
@@ -291,24 +300,12 @@ def test_with_a(text: str, expected: list[str]):
 def test_period_They(text: str, expected: list[str]):
     _test_tokenization(text, expected)
 
-#@pytest.mark.parametrize("text, expected", [
-#    ("It's just not the same",
-#     ["It", "'s", " just", " not", " the same"]),
-#    ("It is the same",
-#     ["It", " is the", " same"]),
-#    ("Yes, and the same thing happened",
-#     ["Yes", ", and", " the same", " thing", " happened"]),
-#])
-#def test_the_same(text: str, expected: list[str]):
-#    _test_tokenization(text, expected)
-
-#@pytest.mark.parametrize("text, expected", [
-#    # TODO: this breaks up in-the
-#    ("We saw a deer, in the backyard",
-#     ["We", " saw", " a", " deer", ", in", " the", " backyard"]),
-#])
-#def test_comma_in(text: str, expected: list[str]):
-#    _test_tokenization(text, expected)
+@pytest.mark.parametrize("text, expected", [
+    ("We saw a deer, in June",
+     ["We", " saw", " a", " deer", ", in", " June"]),
+])
+def test_comma_in(text: str, expected: list[str]):
+    _test_tokenization(text, expected)
 
 @pytest.mark.parametrize("text, expected", [
     ("He went to a party",
@@ -323,15 +320,6 @@ def test_to_a(text: str, expected: list[str]):
 ])
 def test_have_been(text: str, expected: list[str]):
     _test_tokenization(text, expected)
-
-#@pytest.mark.parametrize("text, expected", [
-#    ("I am but one of many",
-#     ["I", " am", " but", " one of", " many"]),
-#    ("I am one of the students",
-#     ["I", " am", " one of", " the", " students"]),  # Rather than " one", " of the"
-#])
-#def test_one_of(text: str, expected: list[str]):
-#    _test_tokenization(text, expected)
 
 @pytest.mark.parametrize("text, expected", [
     ("I will be back",
@@ -397,8 +385,8 @@ def test_as_well(text: str, expected: list[str]):
     _test_tokenization(text, expected)
 
 @pytest.mark.parametrize("text, expected", [
-    ("He spoke up. For his country, he would risk it all",
-     ["He", " spoke", " up", ". For", " his", " country", ",", " he", " would", " risk", " it", " all"]),
+    ("He spoke up. For his country",
+     ["He", " spoke", " up", ". For", " his", " country"]),
 ])
 def test_period_For(text: str, expected: list[str]):
     _test_tokenization(text, expected)
@@ -431,32 +419,14 @@ def test_It_is(text: str, expected: list[str]):
 def test_period_He(text: str, expected: list[str]):
     _test_tokenization(text, expected)
 
-#@pytest.mark.parametrize("text, expected", [
-#    ("He wanted a dog and a cat",
-#     ["He", " wanted", " a", " dog", " and a", " cat"]),
-#    ("He wanted a bird, a dog, and a cat",
-#     ["He", " wanted", " a", " bird", ", a", " dog", ", and", " a", " cat"]),  # Rather than ",", " and a"
-#])
-#def test_and_a(text: str, expected: list[str]):
-#    _test_tokenization(text, expected)
-
-#@pytest.mark.parametrize("text, expected", [
-#    ("Order a pizza, with extra cheese",
-#     ["Order", " a", " pizza", ", with", " extra", " cheese"]),
-#    ("Order a pizza, without meat",
-#     ["Order", " a", " pizza", ",", " without", " meat"]),
-#])
-#def test_comma_with(text: str, expected: list[str]):
-#    _test_tokenization(text, expected)
-
-#@pytest.mark.parametrize("text, expected", [
-#    ("He is part of our class",
-#     ["He", " is", " part of", " our", " class"]),
-#    ("He is part of the crew",
-#     ["He", " is", " part of", " the", " crew"]),  # Rather than " part", " of the"
-#])
-#def test_part_of(text: str, expected: list[str]):
-#    _test_tokenization(text, expected)
+@pytest.mark.parametrize("text, expected", [
+    ("He wanted a dog and a cat",
+     ["He", " wanted", " a", " dog", " and a", " cat"]),
+    ("He wanted a bird, a dog, and a cat",
+     ["He", " wanted", " a", " bird", ", a", " dog", ", and a", " cat"]),
+])
+def test_and_a(text: str, expected: list[str]):
+    _test_tokenization(text, expected)
 
 @pytest.mark.parametrize("text, expected", [
     ("He is tired of this game",
@@ -471,15 +441,6 @@ def test_of_this(text: str, expected: list[str]):
 ])
 def test_on_a(text: str, expected: list[str]):
     _test_tokenization(text, expected)
-
-#@pytest.mark.parametrize("text, expected", [
-#    ("There were a number of mistakes",
-#     ["There", " were", " a", " number of", " mistakes"]),
-#    ("A number of the classes are free",
-#     ["A", " number of", " the", " classes", " are", " free"]),  # Rather than " number", " of the"
-#])
-#def test_number_of(text: str, expected: list[str]):
-#    _test_tokenization(text, expected)
 
 @pytest.mark.parametrize("text, expected", [
     ("Please, have a treat",
@@ -521,4 +482,67 @@ def test_period_These(text: str, expected: list[str]):
      ["He", " lost", ".", " However,", " he", " put", " up", " a", " good", " fight"]),
 ])
 def test_However_comma(text: str, expected: list[str]):
+    _test_tokenization(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("I want to make a sandwich",
+     ["I", " want", " to make", " a", " sandwich"]),
+])
+def test_to_make(text: str, expected: list[str]):
+    _test_tokenization(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    (" it was great. As a fan",
+     [" it", " was", " great", ". As", " a", " fan"]),
+])
+def test_period_As(text: str, expected: list[str]):
+    _test_tokenization(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("I want one of these",
+     ["I", " want", " one", " of these"]),
+])
+def test_of_these(text: str, expected: list[str]):
+    _test_tokenization(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("That is as it should be",
+     ["That", " is", " as", " it", " should be"]),
+])
+def test_should_be(text: str, expected: list[str]):
+    _test_tokenization(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("We ate a lot, including a huge pie",
+     ["We", " ate", " a", " lot", ", including", " a", " huge", " pie"]),
+])
+def test_comma_including(text: str, expected: list[str]):
+    _test_tokenization(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("I didn't say it, he did",
+     ["I", " didn", "'t", " say", " it", ', he', " did"]),
+])
+def test_comma_he(text: str, expected: list[str]):
+    _test_tokenization(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("I want some of their food",
+     ["I", " want", " some", " of their", " food"]),
+])
+def test_comma_he(text: str, expected: list[str]):
+    _test_tokenization(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("He said that is the one",
+     ["He", " said", " that is", " the", " one"]),
+])
+def test_comma_he(text: str, expected: list[str]):
+    _test_tokenization(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("I went to town, there were many people there",
+     ["I", " went", " to", " town", ", there", " were", " many", " people", " there"]),
+])
+def test_comma_he(text: str, expected: list[str]):
     _test_tokenization(text, expected)

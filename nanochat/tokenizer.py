@@ -10,6 +10,8 @@ import os
 import copy
 from functools import lru_cache
 
+from jinja2.nodes import DerivedContextReference
+
 SPECIAL_TOKENS = [
     # every document begins with the Beginning of Sequence (BOS) token that delimits documents
     "<|bos|>",
@@ -25,16 +27,19 @@ SPECIAL_TOKENS = [
 ]
 
 # Forced merges: when BOTH tokens exist in the merge DAG, add a merge (left,right)->(left||right).
-# NOTE: Sorted based on frequency of occurrence in text
+# NOTE: Considerations for sorting:
+# - Frequency of occurrence in text
+# - Special cases
 FORCED_PAIRS = [
     (" of", " the"),
     (",", " and"),
+    (",", " in"),  # Moved from after (".", " They") to before (" in", " the") and (" in", " a")
     (" in", " the"),
     (".", " The"),
     (",", " the"),
     (" to", " the"),
     (" on", " the"),
-    #(" and", " the"),
+    (" and", " the"),
     (" to", " be"),
     (",", " but"),
     (" is", " a"),
@@ -44,6 +49,7 @@ FORCED_PAIRS = [
     (".", " It"),
     (".", " This"),
     (" of", " a"),
+    (",", " with"),  # Moved from after (" and", " a") to before (" with", " the") and (" with", " a")
     (" with", " the"),
     (",", " which"),
     (" in", " a"),
@@ -61,37 +67,35 @@ FORCED_PAIRS = [
     (",", " as"),
     (" as", " the"),
     (" with", " a"),
-    #(" the", " same"),
+    #(" the", " same"),  # Conflicts with pairs that ends with " the"
     (".", " A"),
     (".", " They"),
-    #(",", " in"),  # Conflicts with (" in", " the") and (" in", " a")
     (" to", " a"),
     (" have", " been"),
-    #(" one", " of"),  # Conflicts with (" of", " the") and (" of", " a")
+    #(" one", " of"),  # Conflicts with (" of", " the") and (" of", " a"), not worth derived pair
     (" will", " be"),
     (" has", " been"),
-    #(" the", " first"),
+    #(" the", " first"),  # Conflicts with pairs that ends with " the"
     (".", " If"),
     (" for", " a"),
     (",", " you"),
     #(" is", " not"),
-    #(" the", " most"),
+    #(" the", " most"),  # Conflicts with pairs that ends with " the"
     (",", " we"),
-    #(" the", " world"),
+    #(" the", " world"),  # Conflicts with pairs that ends with " the"
     (" may", " be"),
     (",", " they"),
     (" as", " well"),
     (".", " For"),
     (" into", " the"),
     (".", " But"),
-    (" It", " is"),
+    #(" It", " is"),  # Conflicts with (".", " It"), not worth derived pair
     (".", " He"),
-    #(" and", " a"),
-    #(",", " with"),
-    #(" part", " of"),
+    (" and", " a"),
+    #(" part", " of"),  # Conflicts with (" of", " the") and (" of", " a"), not worth derived pair
     (" of", " this"),
     (" on", " a"),
-    #(" number", " of"),
+    #(" number", " of"),  # Conflicts with (" of", " the") and (" of", " a"), not worth derived pair
     #(" they", " are"),
     (" have", " a"),
     #(" you", " can"),
@@ -101,21 +105,42 @@ FORCED_PAIRS = [
     (" about", " the"),
     (".", " These"),
     (" However", ","),
-
-    # When followed by numerals or non-words
-    #(",", " "),
-    #(".", " "),
-    #(" in", " "),
-    #(" the", " "),
-    #(" of", " "),
-    #(" to", " "),
-    #(" and", " "),
+    (" to", " make"),
+    (".", " As"),
+    (" of", " these"),
+    (" should", " be"),
+    (",", " including"),
+    (",", " he"),
+    (" of", " their"),
+    (" that", " is"),
+    (",", " there"),
 ]
-FORCED_PAIRS_EXPR = "(" + ("|".join([a + b for a, b in FORCED_PAIRS])) + ")(?=([^a-z]|$))"
-# NOTE: this split pattern deviates from GPT-4 in that we use \p{N}{1,2} instead of \p{N}{1,3}
-# I did this because I didn't want to "waste" too many tokens on numbers for smaller vocab sizes.
-# I haven't validated that this is actually a good idea, TODO.
+FORCED_PAIRS_EXPR = "|".join([a + b for a, b in FORCED_PAIRS])
+
+# Derived pairs, i.e. one or both members are the results of another forced merge
+DERIVED_PAIRS = [
+    (", in", " the"),
+    (", in", " a"),
+    (", and", " the"),
+    (", and", " a"),
+    (", with", " the"),
+    (", with", " a"),
+]
+FORCED_PAIRS.extend(DERIVED_PAIRS) # Derived from previous merges so BPE merge must come after
+DERIVED_PAIRS_EXPR = "|".join([a + b for a, b in DERIVED_PAIRS])
+
+# NOTE: Regex for derived pairs must match first
+FORCED_PAIRS_EXPR = "(" + DERIVED_PAIRS_EXPR + "|" + FORCED_PAIRS_EXPR + ")(?=([^a-z]|$))"
+
+# NOTE: this split pattern deviates from GPT-4:
+# - (karpathy) We use `\p{N}{1,2}` instead of `\p{N}{1,3}`. I did this because I didn't want to "waste" too many tokens on
+#   numbers for smaller vocab sizes. I haven't validated that this is actually a good idea, TODO.
+# - We put FORCED_PAIRS_EXPR in front of the original expression to create "holes" for chunks that violate the original
+#   boundaries.
 SPLIT_PATTERN = FORCED_PAIRS_EXPR + r"""|'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
+# - We added ` \p{N}` before `\p{N}{1,2}` so leading digits are merged with the space before them. This improves
+#   compression by ~0.38-0.45% while costing only 10 tokens.
+#SPLIT_PATTERN = FORCED_PAIRS_EXPR + r"""|'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+| \p{N}|\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
 
 # -----------------------------------------------------------------------------
 # Generic GPT-4-style tokenizer based on HuggingFace Tokenizer

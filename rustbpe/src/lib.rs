@@ -196,7 +196,7 @@ fn apply_forced_merges_at_end(
         let left_id = match bytes_to_id.get(&spec.left_bytes) {
             Some(&id) => id,
             None => {
-                log::debug!(
+                log::warn!(
                     "Skipping forced merge {:?}+{:?}: left token not present in vocab",
                     l_str,
                     r_str
@@ -208,7 +208,7 @@ fn apply_forced_merges_at_end(
         let right_id = match bytes_to_id.get(&spec.right_bytes) {
             Some(&id) => id,
             None => {
-                log::debug!(
+                log::warn!(
                     "Skipping forced merge {:?}+{:?}: right token not present in vocab",
                     l_str,
                     r_str
