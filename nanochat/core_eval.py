@@ -136,7 +136,11 @@ def batch_sequences_lm(tokenizer, prompts):
     tokens_without, tokens_with = tokens
     start_idx, end_idx = len(tokens_without), len(tokens_with)
     assert start_idx < end_idx, "prompt without is supposed to be a prefix of prompt with"
-    assert tokens_without == tokens_with[:start_idx], "prompt without is supposed to be a prefix of prompt with"
+    assert tokens_without == tokens_with[:start_idx], (
+        "prompt without is supposed to be a prefix of prompt with:"
+        + f"\n  without: {[tokenizer.decode([tok]) for tok in tokens_without]}"
+        + f"\n  with:    {[tokenizer.decode([tok]) for tok in tokens_with]}"
+    )
     # we only need the with continuation prompt in the LM task, i.e. batch size of 1
     return [tokens_with], [start_idx], [end_idx]
 

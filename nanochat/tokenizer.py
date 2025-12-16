@@ -8,9 +8,8 @@ Two implementations are available:
 
 import os
 import copy
+import re
 from functools import lru_cache
-
-from jinja2.nodes import DerivedContextReference
 
 SPECIAL_TOKENS = [
     # every document begins with the Beginning of Sequence (BOS) token that delimits documents
@@ -96,11 +95,11 @@ FORCED_PAIRS = [
     (" of", " this"),
     (" on", " a"),
     #(" number", " of"),  # Conflicts with (" of", " the") and (" of", " a"), not worth derived pair
-    #(" they", " are"),
+    #(" they", " are"),  # Conflicts with (",", " they"), not worth derived pair
     (" have", " a"),
-    #(" you", " can"),
+    #(" you", " can"),  # Conflicts with (",", " you") and (" can", " be"), not worth derived pair
     (" more", " than"),
-    #(" need", " to"),
+    #(" need", " to"),  # Conflicts with pairs that ends with " to"
     (".", " We"),
     (" about", " the"),
     (".", " These"),
@@ -115,7 +114,7 @@ FORCED_PAIRS = [
     (" that", " is"),
     (",", " there"),
 ]
-FORCED_PAIRS_EXPR = "|".join([a + b for a, b in FORCED_PAIRS])
+FORCED_PAIRS_EXPR = "|".join([re.escape(a + b) for a, b in FORCED_PAIRS])
 
 # Derived pairs, i.e. one or both members are the results of another forced merge
 DERIVED_PAIRS = [
@@ -127,7 +126,7 @@ DERIVED_PAIRS = [
     (", with", " a"),
 ]
 FORCED_PAIRS.extend(DERIVED_PAIRS) # Derived from previous merges so BPE merge must come after
-DERIVED_PAIRS_EXPR = "|".join([a + b for a, b in DERIVED_PAIRS])
+DERIVED_PAIRS_EXPR = "|".join([re.escape(a + b) for a, b in DERIVED_PAIRS])
 
 # NOTE: Regex for derived pairs must match first
 FORCED_PAIRS_EXPR = "(" + DERIVED_PAIRS_EXPR + "|" + FORCED_PAIRS_EXPR + ")(?=([^a-z]|$))"
