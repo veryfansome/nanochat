@@ -10,16 +10,20 @@ def _tok_assert(text, expected_tokens):
     tokens = [tokenizer.decode([tok]) for tok in enc]
     assert tokens == expected_tokens, f"Expected {expected_tokens}, got {tokens}"
 
-#@pytest.mark.parametrize("text, expected", [
-#    ("The product of 2 and 5 is 10",
-#     ["The", " product", " of", " 2", " and", " 5", " is", " 1", "0"]),
-#    ("The product of 20 and 5 is 100",
-#     ["The", " product", " of", " 2", "0", " and", " 5", " is", " 1", "00"]),
-#    ("Add 2 to 5 to get 7",
-#     ["Add", " 2", " to", " 5", " to", " get", " 7"]),
-#])
-#def test_leading_digits(text: str, expected: list[str]):
-#    _test_tokenization(text, expected)
+@pytest.mark.parametrize("text, expected", [
+    ("The product of 2 and 5 is 10",
+     ["The", " product", " of", " 2", " and", " 5", " is", " 10"]),
+    ("The product of 20 and 5 is 100",
+     ["The", " product", " of", " 20", " and", " 5", " is", " 10", "0"]),
+    ("The product of 100 and 100 is 10000",
+     ["The", " product", " of", " 10", "0", " and", " 10", "0", " is", " 10", "000"]),
+    ("The product of 100 and 100 is 10,000",
+     ["The", " product", " of", " 10", "0", " and", " 10", "0", " is", " 10", ",000"]),
+    ("Add 2 to 5 to get 7",
+     ["Add", " 2", " to", " 5", " to", " get", " 7"]),
+])
+def test_leading_digits(text: str, expected: list[str]):
+    _tok_assert(text, expected)
 
 @pytest.mark.parametrize("text, expected", [
     ("Answer: The Hague",
@@ -31,6 +35,8 @@ def test_regex_escape(text: str, expected: list[str]):
 @pytest.mark.parametrize("text, expected", [
     ("I'm of the opinion",
      ["I", "'m", " of the", " opinion"]),
+    ("He is one of the teachers",
+     ["He", " is", " one of the", " teachers"]),
 ])
 def test_of_the(text: str, expected: list[str]):
     _tok_assert(text, expected)
@@ -105,6 +111,8 @@ def test_comma_but(text: str, expected: list[str]):
 @pytest.mark.parametrize("text, expected", [
     ("He is a teacher",
      ["He", " is a", " teacher"]),
+    ("He is an European",
+     ["He", " is an", " European"]),
     ("He is another teacher",
      ["He", " is", " another", " teacher"]),
 ])
@@ -255,17 +263,8 @@ def test_comma_or(text: str, expected: list[str]):
     _tok_assert(text, expected)
 
 @pytest.mark.parametrize("text, expected", [
-    ("I think it is nice",
-     ["I", " think", " it is", " nice"]),
-    ("I think it is the dog",
-     ["I", " think", " it is", " the", " dog"]),
-])
-def test_it_is(text: str, expected: list[str]):
-    _tok_assert(text, expected)
-
-@pytest.mark.parametrize("text, expected", [
     ("You can find produce at the market, such as apples",
-     ["You", " can", " find", " produce", " at the", " market", ",", " such as", " apples"]),
+     ["You", " can", " find", " produce", " at the", " market", ", such as", " apples"]),
 ])
 def test_such_as(text: str, expected: list[str]):
     _tok_assert(text, expected)
@@ -486,7 +485,7 @@ def test_period_These(text: str, expected: list[str]):
 
 @pytest.mark.parametrize("text, expected", [
     ("He lost. However, he put up a good fight",
-     ["He", " lost", ".", " However,", " he", " put", " up", " a", " good", " fight"]),
+     ["He", " lost", ". However,", " he", " put", " up", " a", " good", " fight"]),
 ])
 def test_However_comma(text: str, expected: list[str]):
     _tok_assert(text, expected)
@@ -537,19 +536,89 @@ def test_comma_he(text: str, expected: list[str]):
     ("I want some of their food",
      ["I", " want", " some", " of their", " food"]),
 ])
-def test_comma_he(text: str, expected: list[str]):
-    _tok_assert(text, expected)
-
-@pytest.mark.parametrize("text, expected", [
-    ("He said that is the one",
-     ["He", " said", " that is", " the", " one"]),
-])
-def test_comma_he(text: str, expected: list[str]):
+def test_of_their(text: str, expected: list[str]):
     _tok_assert(text, expected)
 
 @pytest.mark.parametrize("text, expected", [
     ("I went to town, there were many people there",
      ["I", " went", " to", " town", ", there", " were", " many", " people", " there"]),
 ])
-def test_comma_he(text: str, expected: list[str]):
+def test_comma_there(text: str, expected: list[str]):
+    _tok_assert(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("I went during the Summer of 69",
+     ["I", " went", " during the", " Summer", " of", " 69"]),
+])
+def test_during_the(text: str, expected: list[str]):
+    _tok_assert(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("That is Joan, who is my daughter",
+     ["That", " is", " Joan", ", who", " is", " my", " daughter"]),
+])
+def test_comma_who(text: str, expected: list[str]):
+    _tok_assert(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    (" to me. There is no place",
+     [" to", " me", ". There", " is", " no", " place"]),
+])
+def test_period_There(text: str, expected: list[str]):
+    _tok_assert(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    (" ask me. You already know",
+     [" ask", " me", ". You", " already", " know"]),
+])
+def test_period_You(text: str, expected: list[str]):
+    _tok_assert(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("He looked through the looking glass",
+     ["He", " looked", " through the", " looking", " glass"]),
+])
+def test_through_the(text: str, expected: list[str]):
+    _tok_assert(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("He was a teacher",
+     ["He", " was a", " teacher"]),
+])
+def test_was_a(text: str, expected: list[str]):
+    _tok_assert(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("He was cared for by a stranger",
+     ["He", " was", " cared", " for", " by a", " stranger"]),
+])
+def test_by_a(text: str, expected: list[str]):
+    _tok_assert(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("I would be rich",
+     ["I", " would be", " rich"]),
+])
+def test_would_be(text: str, expected: list[str]):
+    _tok_assert(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("Look at all the money",
+     ["Look", " at", " all the", " money"]),
+])
+def test_all_the(text: str, expected: list[str]):
+    _tok_assert(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("You are the leader",
+     ["You", " are the", " leader"]),
+])
+def test_are_the(text: str, expected: list[str]):
+    _tok_assert(text, expected)
+
+@pytest.mark.parametrize("text, expected", [
+    ("You are not a king",
+     ["You", " are not", " a", " king"]),
+])
+def test_are_not(text: str, expected: list[str]):
     _tok_assert(text, expected)

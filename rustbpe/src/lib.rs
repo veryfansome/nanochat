@@ -155,6 +155,14 @@ fn count_pairs_parallel(
 }
 
 #[derive(Clone, Debug)]
+struct BlockedPairSpec {
+    left_bytes: Vec<u8>,
+    right_bytes: Vec<u8>,
+    left_str: String,
+    right_str: String,
+}
+
+#[derive(Clone, Debug)]
 struct ForcedMergeSpec {
     concat_bytes: Vec<u8>,
     left_bytes: Vec<u8>,
@@ -168,6 +176,7 @@ struct ForcedMergeSpec {
 /// - `vocab_size` is the final vocab size limit
 /// - `merges_done` is the number of merges that have already allocated token IDs
 fn apply_forced_merges_at_end(
+    blocked_specs: &[BlockedPairSpec],
     forced_specs: &[ForcedMergeSpec],
     merges: &mut StdHashMap<Pair, u32>,
     vocab_size: u32,
@@ -188,11 +197,23 @@ fn apply_forced_merges_at_end(
 
     let (mut token_bytes, mut bytes_to_id) = build_token_bytes_and_map(merges, max_token_id);
 
-    for spec in forced_specs {
+    'outer_forced: for spec in forced_specs {
         let l_str = &spec.left_str;
         let r_str = &spec.right_str;
 
-        // 1) Both operands must exist as tokens.
+        // 1) If this pair is explicitly blocked, do not create a forced merge for it.
+        for blocked in blocked_specs {
+            if spec.left_bytes == blocked.left_bytes && spec.right_bytes == blocked.right_bytes {
+                log::debug!(
+                    "Skipping forced merge {:?}+{:?} because it is in blocked_pairs",
+                    spec.left_str,
+                    spec.right_str
+                );
+                continue 'outer_forced;
+            }
+        }
+
+        // 2) Both operands must exist as tokens.
         let left_id = match bytes_to_id.get(&spec.left_bytes) {
             Some(&id) => id,
             None => {
@@ -230,11 +251,11 @@ fn apply_forced_merges_at_end(
             continue;
         }
 
-        // 2) Compute concatenated bytes: left || right.
+        // 3) Compute concatenated bytes: left || right.
         let mut concat = spec.left_bytes.clone();
         concat.extend_from_slice(&spec.right_bytes);
 
-        // 3) If a token already has these bytes, reuse its id (no new capacity).
+        // 4) If a token already has these bytes, reuse its id (no new capacity).
         let new_id = if let Some(&existing_id) = bytes_to_id.get(&concat) {
             existing_id
         } else {
@@ -319,9 +340,21 @@ impl Tokenizer {
         mut words: Vec<Word>,
         counts: Vec<i32>,
         vocab_size: u32,
+        blocked_pairs: Option<Vec<(String, String)>>,
         forced_pairs: Option<Vec<(String, String)>>,
     ) {
         assert!(vocab_size >= 256, "vocab_size must be at least 256");
+
+        let blocked_specs: Vec<BlockedPairSpec> = blocked_pairs
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(l, r)| BlockedPairSpec {
+                left_bytes: l.as_bytes().to_vec(),
+                right_bytes: r.as_bytes().to_vec(),
+                left_str: l,
+                right_str: r,
+            })
+            .collect();
 
         let forced_specs: Vec<ForcedMergeSpec> = forced_pairs
             .unwrap_or_default()
@@ -352,8 +385,9 @@ impl Tokenizer {
         }
         let num_merges = total_capacity.saturating_sub(reserved_merges);
         log::info!(
-            "Starting BPE training: total capacity = {} merges ({} normal + {} reserved for forced merges)",
-            total_capacity, num_merges, reserved_merges.min(total_capacity),
+            "Starting BPE training: total capacity = {} merges ({} normal + {} reserved for forced merges), \
+             blocking {} pairs from merging",
+            total_capacity, num_merges, reserved_merges.min(total_capacity), blocked_specs.len(),
         );
         self.merges.clear();
 
@@ -403,21 +437,22 @@ impl Tokenizer {
                 break;
             }
 
-            // --- Suppress natural merges for forced pairs ---
-            if !forced_specs.is_empty() {
-                if banned_pairs.contains(&top.pair) {
-                    continue 'merge_loop;
-                }
+            // Skip pairs we already decided are banned
+            if banned_pairs.contains(&top.pair) {
+                continue 'merge_loop;
+            }
 
+            // --- Suppress natural merges for forced pairs ---
+            if !forced_specs.is_empty() || !blocked_specs.is_empty() {
                 let (left, right) = top.pair;
                 let left_bytes = &token_bytes[left as usize];
                 let right_bytes = &token_bytes[right as usize];
 
-                // 1) Block exact forced pair
-                for spec in &forced_specs {
+                // 1) Explicitly blocked pairs: NEVER allowed to merge.
+                for spec in &blocked_specs {
                     if left_bytes == &spec.left_bytes && right_bytes == &spec.right_bytes {
                         log::debug!(
-                            "Suppressing natural merge of forced pair {:?}+{:?} during normal training",
+                            "Blocking merge of explicitly blocked pair {:?}+{:?}",
                             spec.left_str,
                             spec.right_str
                         );
@@ -426,20 +461,37 @@ impl Tokenizer {
                     }
                 }
 
-                // 2) Block any merge whose concat == forced concat (different decomposition)
-                let mut merged_bytes = Vec::with_capacity(left_bytes.len() + right_bytes.len());
-                merged_bytes.extend_from_slice(left_bytes);
-                merged_bytes.extend_from_slice(right_bytes);
+                // 2) Forced pairs: suppress natural merges of the forced pair itself,
+                //    and any other merge that would create the same concat as a forced pair.
+                if !forced_specs.is_empty() {
+                    // 2a) Block exact forced pair
+                    for spec in &forced_specs {
+                        if left_bytes == &spec.left_bytes && right_bytes == &spec.right_bytes {
+                            log::debug!(
+                                "Suppressing natural merge of forced pair {:?}+{:?} during normal training",
+                                spec.left_str,
+                                spec.right_str
+                            );
+                            banned_pairs.insert(top.pair);
+                            continue 'merge_loop;
+                        }
+                    }
 
-                for spec in &forced_specs {
-                    if merged_bytes == spec.concat_bytes {
-                        log::debug!(
-                            "Suppressing natural merge producing concat of forced pair {:?}+{:?}",
-                            spec.left_str,
-                            spec.right_str
-                        );
-                        banned_pairs.insert(top.pair);
-                        continue 'merge_loop;
+                    // 2b) Block any merge whose concat == forced concat (different decomposition)
+                    let mut merged_bytes = Vec::with_capacity(left_bytes.len() + right_bytes.len());
+                    merged_bytes.extend_from_slice(left_bytes);
+                    merged_bytes.extend_from_slice(right_bytes);
+
+                    for spec in &forced_specs {
+                        if merged_bytes == spec.concat_bytes {
+                            log::debug!(
+                                "Suppressing natural merge producing concat of forced pair {:?}+{:?}",
+                                spec.left_str,
+                                spec.right_str
+                            );
+                            banned_pairs.insert(top.pair);
+                            continue 'merge_loop;
+                        }
                     }
                 }
             }
@@ -500,7 +552,7 @@ impl Tokenizer {
         }
 
         log::info!("Finished training: {} merges completed", merges_done);
-        apply_forced_merges_at_end(&forced_specs, &mut self.merges, vocab_size, &mut merges_done);
+        apply_forced_merges_at_end(&blocked_specs, &forced_specs, &mut self.merges, vocab_size, &mut merges_done);
     }
 }
 
@@ -520,8 +572,8 @@ impl Tokenizer {
     /// Train from a streaming iterator (parallel ingestion).
     /// We refill a Rust Vec<String> buffer under the GIL, then release the GIL
     /// to do the heavy splitting and counting **in parallel** with rayon.
-    #[pyo3(signature = (iterator, vocab_size, buffer_size=8192, pattern=None, forced_pairs=None))]
-    #[pyo3(text_signature = "(self, iterator, vocab_size, buffer_size=8192, pattern=None, forced_pairs=None)")]
+    #[pyo3(signature = (iterator, vocab_size, buffer_size=8192, pattern=None, blocked_pairs=None, forced_pairs=None))]
+    #[pyo3(text_signature = "(self, iterator, vocab_size, buffer_size=8192, pattern=None, blocked_pairs=None, forced_pairs=None)")]
     pub fn train_from_iterator(
         &mut self,
         py: pyo3::Python<'_>,
@@ -529,6 +581,7 @@ impl Tokenizer {
         vocab_size: u32,
         buffer_size: usize,
         pattern: Option<String>,
+        blocked_pairs: Option<Vec<(String, String)>>,
         forced_pairs: Option<Vec<(String, String)>>,
     ) -> PyResult<()> {
         // Use provided pattern or default to GPT-4 pattern
@@ -634,7 +687,7 @@ impl Tokenizer {
             cvec.push(c);
         }
 
-        self.train_core_incremental(words, cvec, vocab_size, forced_pairs);
+        self.train_core_incremental(words, cvec, vocab_size, blocked_pairs, forced_pairs);
         Ok(())
     }
 

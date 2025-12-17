@@ -25,10 +25,30 @@ SPECIAL_TOKENS = [
     "<|output_end|>",
 ]
 
+BLOCKED_PAIRS = [
+    # May not be needed. But, in theory, since we create holes in the pre-tokenization regex for certain
+    # cross-boundary tokens, we should prevent BPE from accidentally learning certain undesirable merges.
+    (",", " "),
+    (".", " "),
+    ("d", " "),
+    ("e", " "),
+    ("f", " "),
+    ("g", " "),
+    ("h", " "),
+    ("l", " "),
+    ("m", " "),
+    ("n", " "),
+    ("o", " "),
+    ("r", " "),
+    ("s", " "),
+    ("t", " "),
+    ("y", " "),
+]
+
 # Forced merges: when BOTH tokens exist in the merge DAG, add a merge (left,right)->(left||right).
 # NOTE: Considerations for sorting:
-# - Frequency of occurrence in text
-# - Special cases
+# - Frequency of occurrence in text, since the order here reflects in the pre-tokenization regex
+# - Special cases, as noted by comments
 FORCED_PAIRS = [
     (" of", " the"),
     (",", " and"),
@@ -41,6 +61,7 @@ FORCED_PAIRS = [
     (" and", " the"),
     (" to", " be"),
     (",", " but"),
+    (" is", " an"),  # Moved from after (" during", " the") to before (" is", " a")
     (" is", " a"),
     (" for", " the"),
     (" from", " the"),
@@ -61,7 +82,7 @@ FORCED_PAIRS = [
     (" as", " a"),
     (",", " it"),
     (",", " or"),
-    (" it", " is"),
+    #(" it", " is"),  # Conflicts with pairs that begins with " is"
     (" such", " as"),
     (",", " as"),
     (" as", " the"),
@@ -71,14 +92,14 @@ FORCED_PAIRS = [
     (".", " They"),
     (" to", " a"),
     (" have", " been"),
-    #(" one", " of"),  # Conflicts with (" of", " the") and (" of", " a"), not worth derived pair
+    #(" one", " of"),  # Conflicts with pairs that begins with " of"
     (" will", " be"),
     (" has", " been"),
     #(" the", " first"),  # Conflicts with pairs that ends with " the"
     (".", " If"),
     (" for", " a"),
     (",", " you"),
-    #(" is", " not"),
+    (" is", " not"),
     #(" the", " most"),  # Conflicts with pairs that ends with " the"
     (",", " we"),
     #(" the", " world"),  # Conflicts with pairs that ends with " the"
@@ -88,16 +109,17 @@ FORCED_PAIRS = [
     (".", " For"),
     (" into", " the"),
     (".", " But"),
-    #(" It", " is"),  # Conflicts with (".", " It"), not worth derived pair
+    #(" It", " is"),  # Conflicts with (".", " It") and pairs that begins with " is"
     (".", " He"),
     (" and", " a"),
-    #(" part", " of"),  # Conflicts with (" of", " the") and (" of", " a"), not worth derived pair
+    #(" part", " of"),  # Conflicts with pairs that begins with " of"
+    ("00", "0"),
     (" of", " this"),
     (" on", " a"),
-    #(" number", " of"),  # Conflicts with (" of", " the") and (" of", " a"), not worth derived pair
-    #(" they", " are"),  # Conflicts with (",", " they"), not worth derived pair
+    #(" number", " of"),  # Conflicts with pairs that begin with " of"
+    #(" they", " are"),  # Conflicts with (",", " they")
     (" have", " a"),
-    #(" you", " can"),  # Conflicts with (",", " you") and (" can", " be"), not worth derived pair
+    #(" you", " can"),  # Conflicts with (",", " you") and (" can", " be")
     (" more", " than"),
     #(" need", " to"),  # Conflicts with pairs that ends with " to"
     (".", " We"),
@@ -111,18 +133,33 @@ FORCED_PAIRS = [
     (",", " including"),
     (",", " he"),
     (" of", " their"),
-    (" that", " is"),
+    #(" that", " is"),
     (",", " there"),
+    (" during", " the"),
+    (",", " who"),
+    (".", " There"),
+    (".", " You"),
+    (" through", " the"),
+    (" was", " a"),
+    (" by", " a"),
+    (" would", " be"),
+    (" all", " the"),
+    (" are", " the"),
+    (" are", " not"),
 ]
 FORCED_PAIRS_EXPR = "|".join([re.escape(a + b) for a, b in FORCED_PAIRS])
 
 # Derived pairs, i.e. one or both members are the results of another forced merge
 DERIVED_PAIRS = [
     (", in", " the"),
-    (", in", " a"),
     (", and", " the"),
-    (", and", " a"),
     (", with", " the"),
+    (" one", " of the"),
+    (",", "000"),
+    (".", " However,"),
+    (",", " such as"),
+    (", in", " a"),
+    (", and", " a"),
     (", with", " a"),
 ]
 FORCED_PAIRS.extend(DERIVED_PAIRS) # Derived from previous merges so BPE merge must come after
@@ -132,14 +169,15 @@ DERIVED_PAIRS_EXPR = "|".join([re.escape(a + b) for a, b in DERIVED_PAIRS])
 FORCED_PAIRS_EXPR = "(" + DERIVED_PAIRS_EXPR + "|" + FORCED_PAIRS_EXPR + ")(?=([^a-z]|$))"
 
 # NOTE: this split pattern deviates from GPT-4:
-# - (karpathy) We use `\p{N}{1,2}` instead of `\p{N}{1,3}`. I did this because I didn't want to "waste" too many tokens on
-#   numbers for smaller vocab sizes. I haven't validated that this is actually a good idea, TODO.
-# - We put FORCED_PAIRS_EXPR in front of the original expression to create "holes" for chunks that violate the original
-#   boundaries.
-SPLIT_PATTERN = FORCED_PAIRS_EXPR + r"""|'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
-# - We added ` \p{N}` before `\p{N}{1,2}` so leading digits are merged with the space before them. This improves
-#   compression by ~0.38-0.45% while costing only 10 tokens.
-#SPLIT_PATTERN = FORCED_PAIRS_EXPR + r"""|'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+| \p{N}|\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
+# - (karpathy) We use `\p{N}{1,2}` instead of `\p{N}{1,3}`. I did this because I didn't want to "waste" too many
+#   tokens on numbers for smaller vocab sizes. I haven't validated that this is actually a good idea, TODO.
+# - We put FORCED_PAIRS_EXPR in front of the original expression to create "holes" for chunks that violate normal
+#   token boundaries.
+# - We add ` ?` before `\p{N}{1,2}` so leading digits are merged with the space before them like words. This improves
+#   compression by ~1.09-1.23% while costing at most 220 tokens. If we revert to the original `\p{N}{1,3}` pattern
+#   used by GPT-4, we would get ~0.14-0.2% additional improvement to compression but potentially spend a lot more
+#   token capacity, up to 2200, assuming BPE learns all the possible merges.
+SPLIT_PATTERN = FORCED_PAIRS_EXPR + r"""|'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+| ?\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
 
 # -----------------------------------------------------------------------------
 # Generic GPT-4-style tokenizer based on HuggingFace Tokenizer
@@ -279,6 +317,7 @@ class RustBPETokenizer:
         vocab_size_no_special = vocab_size - len(SPECIAL_TOKENS)
         assert vocab_size_no_special >= 256, f"vocab_size_no_special must be at least 256, got {vocab_size_no_special}"
         tokenizer.train_from_iterator(text_iterator, vocab_size_no_special,
+                                      blocked_pairs=BLOCKED_PAIRS,
                                       forced_pairs=FORCED_PAIRS,
                                       pattern=SPLIT_PATTERN)
         # 2) construct the associated tiktoken encoding for inference
