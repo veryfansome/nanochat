@@ -132,17 +132,24 @@ def batch_sequences_schema(tokenizer, prompts):
 
 def batch_sequences_lm(tokenizer, prompts):
     # In LM tasks, we have two prompts: without and with continuation
+    prompt_without, prompt_with = prompts
+    assert prompt_with.startswith(prompt_without), (
+            "prompt_without is supposed to be a prefix of prompt_with:"
+            + f"\n  without: {prompt_without}"
+            + f"\n  with:    {prompt_with}"
+    )
+
     tokens = tokenizer(prompts, prepend=tokenizer.get_bos_token_id())
     tokens_without, tokens_with = tokens
-    start_idx, end_idx = len(tokens_without), len(tokens_with)
-    assert start_idx < end_idx, "prompt without is supposed to be a prefix of prompt with"
-    assert tokens_without == tokens_with[:start_idx], (
-        "prompt without is supposed to be a prefix of prompt with:"
-        + f"\n  without: {[tokenizer.decode([tok]) for tok in tokens_without]}"
-        + f"\n  with:    {[tokenizer.decode([tok]) for tok in tokens_with]}"
-    )
+
+    # Using common length as the start index for evaluating loss/correctness allows correctly
+    # handling tokenizers that might not be prefix-stable.
+    common_len = find_common_length(tokens, direction='left')
+    end_idx = len(tokens_with)
+
+    assert common_len < end_idx, "prompt without is supposed to be a prefix of prompt with"
     # we only need the with continuation prompt in the LM task, i.e. batch size of 1
-    return [tokens_with], [start_idx], [end_idx]
+    return [tokens_with], [common_len], [end_idx]
 
 
 @torch.no_grad()
