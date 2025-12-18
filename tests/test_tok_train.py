@@ -13,5 +13,5 @@ def _tok_assert(text, expected_tokens):
 @pytest.mark.parametrize("text, expected", [
     (" I am", [" I", " am"]),
 ])
-def test_of_the(text: str, expected: list[str]):
+def test_tokenization(text: str, expected: list[str]):
     _tok_assert(text, expected)
